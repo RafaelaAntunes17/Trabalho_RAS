@@ -20,7 +20,11 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+<<<<<<< Updated upstream
 // 1. ADICIONEI O 'Mail' AOS IMPORTS
+=======
+
+>>>>>>> Stashed changes
 import { Copy, Link as LinkIcon, Users, Check, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,7 +43,11 @@ export function ShareLink({ projectId, projectName }: ShareLinkProps) {
 
   const handleGenerateLink = () => {
     const emailconfiguracao = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+<<<<<<< Updated upstream
     // 2. VALIDAÇÃO: Obriga a preencher o email antes de gerar
+=======
+
+>>>>>>> Stashed changes
     if (!Convidadoemail || !emailconfiguracao.test(Convidadoemail)) {
       toast({
         title: "E-mail em falta",
@@ -49,10 +57,17 @@ export function ShareLink({ projectId, projectName }: ShareLinkProps) {
       return;
     }
 
+<<<<<<< Updated upstream
     // SIMULAÇÃO: Gera um token aleatório
     const uniqueToken = Math.random().toString(36).substring(2, 10);
     
     // Constrói o URL (Incluindo o email para referência futura)
+=======
+
+    const uniqueToken = Math.random().toString(36).substring(2, 10);
+    
+
+>>>>>>> Stashed changes
     const link = `${window.location.origin}/project/${projectId}?token=${uniqueToken}&permission=${permission}&email=${encodeURIComponent(Convidadoemail)}`;
     
     setGeneratedLink(link);
@@ -80,7 +95,11 @@ export function ShareLink({ projectId, projectName }: ShareLinkProps) {
       if (!open) {
         setGeneratedLink(""); 
         setIsCopied(false);
+<<<<<<< Updated upstream
         setConvidadoemail(""); // Limpa o email ao fechar
+=======
+        setConvidadoemail(""); 
+>>>>>>> Stashed changes
       }
     }}>
       <DialogTrigger asChild>
@@ -99,7 +118,10 @@ export function ShareLink({ projectId, projectName }: ShareLinkProps) {
         
         <div className="flex flex-col gap-4 py-4">
           
+<<<<<<< Updated upstream
           {/* 3. NOVO CAMPO DE INPUT DE E-MAIL */}
+=======
+>>>>>>> Stashed changes
           <div className="grid gap-2">
             <Label htmlFor="email">E-mail do Convidado</Label>
             <div className="relative">
