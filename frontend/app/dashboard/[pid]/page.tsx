@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, LoaderCircle, OctagonAlert, Play } from "lucide-react";
+import { Download, LoaderCircle, OctagonAlert, Play, X } from "lucide-react";
 import { ProjectImageList } from "@/components/project-page/project-image-list";
 import { ViewToggle } from "@/components/project-page/view-toggle";
 import { AddImagesDialog } from "@/components/project-page/add-images-dialog";
@@ -63,7 +63,7 @@ export default function Project({
   const [processingProgress, setProcessingProgress] = useState<number>(0);
   const [processingSteps, setProcessingSteps] = useState<number>(1);
   const [waitingForPreview, setWaitingForPreview] = useState<string>("");
-
+  const [showCancelButton, setShowCancelButton] = useState(false);
   const totalProcessingSteps =
     (project.data?.tools.length ?? 0) * (project.data?.imgs.length ?? 0);
   const projectResults = useGetProjectResults(
@@ -72,6 +72,7 @@ export default function Project({
     session.token,
   );
   const qc = useQueryClient();
+  
 
   useLayoutEffect(() => {
     if (
@@ -130,7 +131,45 @@ export default function Project({
     isMobile,
     projectResults,
   ]);
+  // 3. NOVO EFFECT: Temporizador de 10 segundos
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
   
+    if (processing) {
+      // Reinicia o botão para escondido ao começar
+      setShowCancelButton(false);
+      
+      // Define o timer para mostrar o botão após 10 segundos
+      timer = setTimeout(() => {
+        setShowCancelButton(true);
+      }, 10000);
+    } else {
+      // Se terminar antes, garante que está escondido
+      setShowCancelButton(false);
+    }
+  
+    return () => clearTimeout(timer);
+  }, [processing]);
+  
+  // 4. NOVA FUNÇÃO: Cancelamento Otimista
+  const handleCancelOptimistic = () => {
+    // Avisa o backend
+    cancelProjectMutation.mutate();
+    
+    // Atualiza a UI imediatamente (<1s)
+    setProcessing(false);
+    setProcessingProgress(0);
+    setProcessingSteps(1);
+    setShowCancelButton(false);
+    if (!isMobile) sidebar.setOpen(true); 
+    
+    // 2. Garante que volta para o modo de edição (onde estão os filtros)
+    router.push(`?mode=edit&view=${view}`);
+    toast({
+      title: "Processamento cancelado",
+      description: "A operação foi interrompida.",
+    });
+  };
   if (project.isError)
     return (
       <div className="flex size-full justify-center items-center h-screen p-8">
@@ -285,26 +324,16 @@ export default function Project({
             
             <Progress value={processingProgress} className="w-96" />
             
-            <Button 
-              variant="destructive" 
-              onClick={() => {
-
-                cancelProjectMutation.mutate(); 
-                
-
-                setProcessing(false);
-                setProcessingProgress(0);
-                setProcessingSteps(1);
-                
-                toast({
-                  title: "Processamento cancelado",
-                  description: "A operação foi interrompida.",
-                });
-              
-              }}
-            >
-              Cancelar
-            </Button>
+            {/* Só mostra o botão se showCancelButton for true (após 10s) */}
+            {showCancelButton && (
+              <Button 
+                variant="destructive" 
+                onClick={handleCancelOptimistic} // Usa a função que criaste lá em cima
+                className="animate-in fade-in zoom-in duration-300 gap-2"
+              >
+                <X className="size-4" /> Cancelar
+              </Button>
+            )}
           </Card>
         </div>
       </Transition>
