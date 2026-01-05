@@ -1,5 +1,5 @@
 "use client";
-
+import { ShareLink } from "@/components/project-page/share-link";
 import { Download, LoaderCircle, OctagonAlert, Play, X } from "lucide-react";
 import { ProjectImageList } from "@/components/project-page/project-image-list";
 import { ViewToggle } from "@/components/project-page/view-toggle";
@@ -251,6 +251,10 @@ export default function Project({
                   <AddImagesDialog />
                 </>
               )}
+              <ShareLink 
+                  projectId={project.data._id} 
+                  projectName={project.data.name} 
+              />
               <Button
                 variant="outline"
                 className="px-3"
