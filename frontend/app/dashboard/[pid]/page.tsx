@@ -131,39 +131,39 @@ export default function Project({
     isMobile,
     projectResults,
   ]);
-  // 3. NOVO EFFECT: Temporizador de 10 segundos
+  
   useEffect(() => {
     let timer: NodeJS.Timeout;
   
     if (processing) {
-      // Reinicia o botão para escondido ao começar
+      
       setShowCancelButton(false);
       
-      // Define o timer para mostrar o botão após 10 segundos
+
       timer = setTimeout(() => {
         setShowCancelButton(true);
       }, 10000);
     } else {
-      // Se terminar antes, garante que está escondido
+
       setShowCancelButton(false);
     }
   
     return () => clearTimeout(timer);
   }, [processing]);
   
-  // 4. NOVA FUNÇÃO: Cancelamento Otimista
+
   const handleCancelOptimistic = () => {
-    // Avisa o backend
+    
     cancelProjectMutation.mutate();
     
-    // Atualiza a UI imediatamente (<1s)
+   
     setProcessing(false);
     setProcessingProgress(0);
     setProcessingSteps(1);
     setShowCancelButton(false);
     if (!isMobile) sidebar.setOpen(true); 
     
-    // 2. Garante que volta para o modo de edição (onde estão os filtros)
+
     router.push(`?mode=edit&view=${view}`);
     toast({
       title: "Processamento cancelado",
@@ -324,7 +324,7 @@ export default function Project({
             
             <Progress value={processingProgress} className="w-96" />
             
-            {/* Só mostra o botão se showCancelButton for true (após 10s) */}
+            
             {showCancelButton && (
               <Button 
                 variant="destructive" 

@@ -76,7 +76,7 @@ function process_msg() {
             io.to(user).emit("process-update", msg_id);
         }
         else if (/processing-cancelled/.test(msg_id) || status == "cancelled") {
-            // Notificar o frontend que o cancelamento foi processado no servidor
+          
             io.to(user).emit("process-cancelled", msg_id);
         }
   
