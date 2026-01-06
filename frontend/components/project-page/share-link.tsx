@@ -48,14 +48,17 @@ export function ShareLink({ projectId, projectName }: ShareLinkProps) {
       return;
     }
     try{
+      const token = localStorage.getItem("token");
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/share`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         }
       });
       if(!response.ok){
-        throw new Error('Erro ao gerar o link de partilha.');
+        const errorData = await response.json();
+        throw new Error(errorData.message ||  'Erro ao gerar o link de partilha.');
       }
       const data = await response.json();
       const link = `${window.location.origin}/invite/${data.token}?email=${encodeURIComponent(Convidadoemail)}&permission=${permission}`;
