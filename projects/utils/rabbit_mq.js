@@ -8,25 +8,42 @@ const exchange = "picturas";
 
 const rabbit_mq_sv = `amqp://${rabbit_username}:${rabbit_password}@${rabbit_host}:${rabbit_port}`;
 
-function send_rabbit_msg(msg, queue) {
-    amqp.connect(rabbit_mq_sv, (err_sv, connection) => {
-        if (err_sv) throw err_sv;
-        
-        connection.createChannel( (err_conn, channel) => {
-            if (err_conn) throw err_conn;
-            
-            channel.assertExchange(exchange, 'direct', {
-                durable: true
-            });
+let channel = null;
 
-            channel.publish(exchange, queue, Buffer.from(JSON.stringify(msg)));
-        });
-        
-        setTimeout(() => {
-            connection.close();
-        }, 500);
-    });
+// Estabelece a conexão uma única vez ao iniciar
+amqp.connect(rabbit_mq_sv, (err_sv, connection) => {
+    if (err_sv) {
+        console.error("[RabbitMQ] Erro de conexão:", err_sv);
+        return;
+    }
     
+    console.log("[RabbitMQ] Conectado com sucesso.");
+
+    connection.createChannel((err_conn, ch) => {
+        if (err_conn) {
+            console.error("[RabbitMQ] Erro ao criar canal:", err_conn);
+            return;
+        }
+        
+        ch.assertExchange(exchange, 'direct', {
+            durable: true
+        });
+
+        channel = ch; // Guarda o canal para reutilização
+    });
+});
+
+function send_rabbit_msg(msg, queue) {
+    if (!channel) {
+        console.error("[RabbitMQ] Canal não está pronto. Mensagem perdida:", msg);
+        return;
+    }
+    
+    try {
+        channel.publish(exchange, queue, Buffer.from(JSON.stringify(msg)));
+    } catch (e) {
+        console.error("[RabbitMQ] Erro ao publicar mensagem:", e);
+    }
 }
 
 function read_rabbit_msg(queue, callback) {
@@ -46,7 +63,6 @@ function read_rabbit_msg(queue, callback) {
                 channel.consume(q.queue, (msg) => {
                     if(msg != null){
                         callback(msg);
-                        // Acknowledge the message
                         channel.ack(msg);
                     }
                 }, {

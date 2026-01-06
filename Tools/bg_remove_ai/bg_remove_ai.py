@@ -3,7 +3,7 @@ import json
 import datetime
 import pytz
 
-from rembg import remove
+from rembg import remove, new_session 
 import utils.env as env
 
 from utils.img_handler import Img_Handler
@@ -23,10 +23,12 @@ class Background_Remove_AI:
             'wrong_procedure': 1100,
             'error_processing': 1101
         }
+        
+        self.session = new_session("u2net") 
 
     def background_remove(self, image_path, store_image_path):
         image = self._img_handler.get_img(image_path)
-        new_image = remove(image)
+        new_image = remove(image, session=self.session) 
         self._img_handler.store_img(new_image, store_image_path)
 
     def background_remove_callback(self, ch, method, properties, body):
@@ -58,12 +60,12 @@ class Background_Remove_AI:
             cur_timestamp = cur_timestamp.isoformat()
 
             self._tool_msg.send_msg(msg_id, resp_msg_id, cur_timestamp, 'success', processing_time, store_img_path)
-        except Exception:
+        except Exception as e:
             cur_timestamp = datetime.datetime.now(pytz.utc)
             processing_time = (cur_timestamp - timestamp).total_seconds() * 1000
             cur_timestamp = cur_timestamp.isoformat()
 
-            self._tool_msg.send_msg(msg_id, resp_msg_id, cur_timestamp, 'error', processing_time, None, self._codes['error_processing'], "An error occured while processing the request", img_path)
+            self._tool_msg.send_msg(msg_id, resp_msg_id, cur_timestamp, 'error', processing_time, None, self._codes['error_processing'], "An error occured while processing the request: " + str(e), img_path)
 
     def exec(self, args):
         while True:
