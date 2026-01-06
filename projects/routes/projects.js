@@ -1085,4 +1085,27 @@ router.post("/:user/:project/cancel", (req, res, next) => {
     .catch((_) => res.status(500).jsonp("Error cancelling project processing"));
 });
 
+router.post("/:id/share", async(req, res)=>{
+  try{
+    const userId = req.user._id;
+    const token = await Project.generateShareToken(userId, req.params.id);
+    res.json({token});
+  }catch (error){
+    res.status(403).json({error: error.message});
+  }
+});
+
+router.post("/join/:token", async(req, res)=>{
+  try{
+    const userId = req.user._id;
+    const project = await Project.getSharedProject(userId, req.params.token);
+    if(!project){
+      return res.status(404).json({error: "Não foi possível entrar no projeto."});
+    }
+    res.json({message: "Entrou no projeto com sucesso."});
+  }catch (error){
+    res.status(400).json({error: error.message});
+  }
+});
+
 module.exports = { router, process_msg };
