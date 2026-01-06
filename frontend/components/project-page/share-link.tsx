@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Copy, Link as LinkIcon, Users, Check, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ToastTitle } from "../ui/toast";
 
 interface ShareLinkProps {
   projectId: string;
@@ -36,7 +37,7 @@ export function ShareLink({ projectId, projectName }: ShareLinkProps) {
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
 
-  const handleGenerateLink = () => {
+  const handleGenerateLink = async () => {
     const emailconfiguracao = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!Convidadoemail || !emailconfiguracao.test(Convidadoemail)) {
       toast({
@@ -46,21 +47,33 @@ export function ShareLink({ projectId, projectName }: ShareLinkProps) {
       });
       return;
     }
-
-
-    const uniqueToken = Math.random().toString(36).substring(2, 10);
-    
-
-    const link = `${window.location.origin}/project/${projectId}?token=${uniqueToken}&permission=${permission}&email=${encodeURIComponent(Convidadoemail)}`;
-    
-    setGeneratedLink(link);
-    
-    toast({
-      title: "Convite criado!",
-      description: `Acesso de ${permission === 'edit' ? 'edição' : 'leitura'} atribuído a ${Convidadoemail}.`,
-    });
+    try{
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      if(!response.ok){
+        throw new Error('Erro ao gerar o link de partilha.');
+      }
+      const data = await response.json();
+      const link = `${window.location.origin}/invite/${data.token}?email=${encodeURIComponent(Convidadoemail)}&permission=${permission}`;
+      setGeneratedLink(link);
+      toast({
+        title: "Link de colaboração criado!",
+        description: `O link de colaboração foi criado para ${Convidadoemail}.`,
+      });
+    }
+    catch(error){
+      toast({
+        title:"Erro na API",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
-
+  
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedLink);
     setIsCopied(true);
