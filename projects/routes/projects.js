@@ -394,18 +394,53 @@ router.get("/:user/:project/imgs", async (req, res, next) => {
     .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
+
 // Get results of processing a project
 router.get("/:user/:project/process", (req, res, next) => {
-  // Getting last processed request from project in order to get their result's path
+  const format = req.query.format || "zip"; // Lê o formato da query string (padrão: zip)
 
   Project.getOne(req.params.user, req.params.project)
     .then(async (_) => {
-      const zip = new JSZip();
       const results = await Result.getAll(req.params.user, req.params.project);
 
+      // --- OPÇÃO JSON ---
+      if (format === "json") {
+        const jsonOutput = {
+          projectId: req.params.project,
+          userId: req.params.user,
+          generatedAt: new Date().toISOString(),
+          results: []
+        };
+
+        for (let r of results) {
+          // Obter URL assinada ou pública para incluir no JSON
+          const resp = await get_image_docker(
+            r.user_id,
+            r.project_id,
+            "out",
+            r.img_key
+          );
+          jsonOutput.results.push({
+            fileName: r.file_name,
+            type: r.type,
+            url: resp.data.url
+          });
+        }
+
+        const fileName = `user_${req.params.user}_project_${req.params.project}_results.json`;
+        
+        res.set("Content-Type", "application/json");
+        res.set("Content-Disposition", `attachment; filename=${fileName}`);
+        return res.status(200).send(JSON.stringify(jsonOutput, null, 2));
+      }
+
+      // --- OPÇÃO ZIP (Lógica Original) ---
+      const zip = new JSZip();
       const result_path = `/../images/users/${req.params.user}/projects/${req.params.project}/tmp`;
 
-      fs.mkdirSync(path.join(__dirname, result_path), { recursive: true });
+      if (!fs.existsSync(path.join(__dirname, result_path))) {
+        fs.mkdirSync(path.join(__dirname, result_path), { recursive: true });
+      }
 
       for (let r of results) {
         const res_path = path.join(__dirname, result_path, r.file_name);
@@ -421,11 +456,10 @@ router.get("/:user/:project/process", (req, res, next) => {
         const file_resp = await axios.get(url, { responseType: "stream" });
         const writer = fs.createWriteStream(res_path);
 
-        // Use a Promise to handle the stream completion
         await new Promise((resolve, reject) => {
           writer.on("finish", resolve);
           writer.on("error", reject);
-          file_resp.data.pipe(writer); // Pipe AFTER setting up the event handlers
+          file_resp.data.pipe(writer);
         });
 
         const fs_res = fs.readFileSync(res_path);
@@ -447,9 +481,10 @@ router.get("/:user/:project/process", (req, res, next) => {
       const b = await ans.arrayBuffer();
       res.status(200).send(Buffer.from(b));
     })
-    .catch((_) =>
-      res.status(601).jsonp(`Error acquiring project's processing result`)
-    );
+    .catch((err) => {
+      console.error(err);
+      res.status(601).jsonp(`Error acquiring project's processing result`);
+    });
 });
 
 

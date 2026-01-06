@@ -12,6 +12,13 @@ import {
   useGetProjectResults,
   useGetSocket,
 } from "@/lib/queries/projects";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react"; 
 import Loading from "@/components/loading";
 import { ProjectProvider } from "@/providers/project-provider";
 import { use, useEffect, useLayoutEffect, useState } from "react";
@@ -235,23 +242,58 @@ const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
                 </>
               )}
               <ShareLink projectId={project.data._id} projectName={project.data.name} />
-              <Button
-                variant="outline"
-                className="px-3"
-                title="Download"
-                onClick={() => {
-                  (mode === "edit" ? downloadProjectImages : downloadProjectResults).mutate(
-                    { uid: session.user._id, pid: project.data._id, token: session.token, projectName: project.data.name },
-                    { onSuccess: () => { toast({ title: `Project downloaded.` }); } }
-                  );
-                }}
-              >
-                {(mode === "edit" ? downloadProjectImages : downloadProjectResults).isPending ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : (
-                  <Download />
-                )}
-              </Button>
+<DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="px-3 gap-2" title="Download Options">
+                    {(mode === "edit" ? downloadProjectImages : downloadProjectResults).isPending ? (
+                      <LoaderCircle className="animate-spin size-4" />
+                    ) : (
+                      <Download className="size-4" />
+                    )}
+                    <span className="hidden xl:inline">Download</span>
+                    <ChevronDown className="size-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {/* Opção ZIP (Padrão) */}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      (mode === "edit" ? downloadProjectImages : downloadProjectResults).mutate(
+                        { 
+                          uid: session.user._id, 
+                          pid: project.data._id, 
+                          token: session.token, 
+                          projectName: project.data.name,
+                          format: 'zip' 
+                        } as any, // Cast necessário se a tipagem estrita reclamar no modo 'edit'
+                        { onSuccess: () => { toast({ title: "Project downloaded (ZIP)." }); } }
+                      );
+                    }}
+                  >
+                    Download as ZIP
+                  </DropdownMenuItem>
+
+                  {/* Opção JSON (Apenas disponível no modo Results) */}
+                  {mode === "results" && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        downloadProjectResults.mutate(
+                          { 
+                            uid: session.user._id, 
+                            pid: project.data._id, 
+                            token: session.token, 
+                            projectName: project.data.name,
+                            format: 'json' 
+                          },
+                          { onSuccess: () => { toast({ title: "Project metadata downloaded (JSON)." }); } }
+                        );
+                      }}
+                    >
+                      Download as JSON
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <div className="hidden xl:flex items-center gap-2">
                 <ViewToggle />
                 <ModeToggle />
