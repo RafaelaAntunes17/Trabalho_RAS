@@ -66,9 +66,10 @@ export function ShareLink({ projectId, projectName }: ShareLinkProps) {
       });
     }
     catch(error){
+      const errorData = error as Error;
       toast({
         title:"Erro na API",
-        description: error.message,
+        description: errorData.message,
         variant: "destructive",
       });
     }
