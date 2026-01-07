@@ -420,11 +420,11 @@ router.post("/:user/:project/share", auth.checkToken, function (req, res, next) 
  * @body { "token": String }
  * @returns Joined project's data
  */
-router.post("/join/:token", auth.checkToken, function (req, res, next) {
+router.post("/:user/join/:token", auth.checkToken, function (req, res, next) {
   axios
     .post(projectsURL + `join/${req.params.token}`, req.body, {
       httpsAgent: httpsAgent,
-      headers: {"user-id": req.user._id || req.body.userId}
+      headers: {"x-user-id": req.params.user}
     })
     .then((resp) => res.status(201).jsonp(resp.data))
     .catch((err) => res.status(500).jsonp("Error joining shared project"));

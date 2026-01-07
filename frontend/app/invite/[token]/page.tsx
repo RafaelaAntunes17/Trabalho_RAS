@@ -21,6 +21,7 @@ export default function InvitePage(){
             const sessionRaw = localStorage.getItem("session");
             const session = sessionRaw ? JSON.parse(sessionRaw) : null;
             const token = session?.token;
+            const userId = session?.user._id;
             
             if(!token){
                 toast({
@@ -32,7 +33,7 @@ export default function InvitePage(){
                 return;
             }
 
-            const response = await fetch(`http://localhost:8000/projects/join/${params.token}`, {
+            const response = await fetch(`http://localhost:8000/projects/${userId}/join/${params.token}`, {
                 method: "POST",
                 headers: {
                     'Content-Type': 'application/json',

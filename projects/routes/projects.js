@@ -1100,7 +1100,7 @@ router.post("/:id/share", async(req, res)=>{
 
 router.post("/join/:token", async(req, res) => {
   try {
-    const userId = req.headers['user-id'];
+    const userId = req.headers['x-user-id'];
 
     if (!userId) {
       return res.status(400).json({ error: "User ID não fornecido pelo Gateway." });
