@@ -253,7 +253,8 @@ export default function Project({
               )}
               <ShareLink 
                   projectId={project.data._id} 
-                  projectName={project.data.name} 
+                  projectName={project.data.name}
+                  currentUserId={session.user._id} 
               />
               <Button
                 variant="outline"

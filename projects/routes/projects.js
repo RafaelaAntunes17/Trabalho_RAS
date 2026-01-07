@@ -1087,7 +1087,10 @@ router.post("/:user/:project/cancel", (req, res, next) => {
 
 router.post("/:id/share", async(req, res)=>{
   try{
-    const userId = req.user._id;
+    const userId = req.headers['x-user-id'];
+    if(!userId){
+      return res.status(400).json({error: "Usuário não autenticado."});
+    }
     const token = await Project.generateShareToken(userId, req.params.id);
     res.json({token});
   }catch (error){
@@ -1095,16 +1098,21 @@ router.post("/:id/share", async(req, res)=>{
   }
 });
 
-router.post("/join/:token", async(req, res)=>{
-  try{
-    const userId = req.user._id;
-    const project = await Project.getSharedProject(userId, req.params.token);
-    if(!project){
-      return res.status(404).json({error: "Não foi possível entrar no projeto."});
+router.post("/join/:token", async(req, res) => {
+  try {
+    const userId = req.headers['user-id'];
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID não fornecido pelo Gateway." });
     }
-    res.json({message: "Entrou no projeto com sucesso."});
-  }catch (error){
-    res.status(400).json({error: error.message});
+
+    const project = await Project.getSharedProject(userId, req.params.token);
+    if (!project) {
+      return res.status(404).json({ error: "Não foi possível entrar no projeto." });
+    }
+    res.json({ message: "Entrou no projeto com sucesso." });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 

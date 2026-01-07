@@ -400,4 +400,34 @@ router.delete(
   }
 );
 
+/**
+ * Generate share token for a project
+ * @body Empty
+ * @returns Share token string
+ */
+router.post("/:user/:project/share", auth.checkToken, function (req, res, next) {
+  axios
+    .post(projectsURL + `${req.params.project}/share`, req.body, {
+      httpsAgent: httpsAgent,
+      headers: {"x-user-id": req.params.user}
+    })
+    .then ((resp) => res.status(201).jsonp(resp.data))
+    .catch((err) => res.status(500).jsonp("Error generating share token"));
+});
+
+/**
+ * Join a project using a share token
+ * @body { "token": String }
+ * @returns Joined project's data
+ */
+router.post("/join/:token", auth.checkToken, function (req, res, next) {
+  axios
+    .post(projectsURL + `join/${req.params.token}`, req.body, {
+      httpsAgent: httpsAgent,
+      headers: {"user-id": req.user._id || req.body.userId}
+    })
+    .then((resp) => res.status(201).jsonp(resp.data))
+    .catch((err) => res.status(500).jsonp("Error joining shared project"));
+})
+
 module.exports = router;

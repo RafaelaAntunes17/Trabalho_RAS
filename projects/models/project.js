@@ -16,7 +16,7 @@ const projectSchema = new mongoose.Schema({
   name: { type: String, required: true },
   user_id: { type: mongoose.Schema.Types.ObjectId, required: true }, // Maybe mudar para falso por causa de users anónimos, ou procurar alguma solução
   collaborators: {type: [mongoose.Schema.Types.ObjectId], default: [] },
-  isShareable: { type: Boolean, default: false },
+  isShareable: { type: Boolean, default: true },
   imgs: { type: [imgSchema], default: [] },
   tools: { type: [toolSchema], default: [] },
 });

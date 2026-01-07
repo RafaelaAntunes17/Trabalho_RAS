@@ -27,9 +27,10 @@ import { ToastTitle } from "../ui/toast";
 interface ShareLinkProps {
   projectId: string;
   projectName: string;
+  currentUserId: string;
 }
 
-export function ShareLink({ projectId, projectName }: ShareLinkProps) {
+export function ShareLink({ projectId, projectName, currentUserId }: ShareLinkProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [Convidadoemail, setConvidadoemail] = useState("");
   const [permission, setPermission] = useState<"view" | "edit">("view");
@@ -47,15 +48,34 @@ export function ShareLink({ projectId, projectName }: ShareLinkProps) {
       });
       return;
     }
+    const sessionRaw = localStorage.getItem("session");
+    const session = sessionRaw ? JSON.parse(sessionRaw) : null;
+    const token = session?.token;
+    const userId = session?.user._id;
+    console.log("User ID from session:", userId);
+    console.log("Token:", token);
+    if (!token || !userId) {
+      toast({
+        title: "Erro de Sessão",
+        description: "Não foi possível encontrar os teus dados de login na 'session'.",
+        variant: "destructive",
+      });
+      return;
+    }
     try{
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/share`, {
+      const response = await fetch(`http://localhost:8000/projects/${currentUserId}/${projectId}/share`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         }
       });
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("O servidor devolveu HTML em vez de JSON:", text);
+        throw new Error("O servidor de API não respondeu corretamente (404 ou 500).");
+      }
       if(!response.ok){
         const errorData = await response.json();
         throw new Error(errorData.message ||  'Erro ao gerar o link de partilha.');
