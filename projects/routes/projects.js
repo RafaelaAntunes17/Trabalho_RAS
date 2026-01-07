@@ -42,6 +42,7 @@ const key = fs.readFileSync(__dirname + "/../certs/selfsigned.key");
 const cert = fs.readFileSync(__dirname + "/../certs/selfsigned.crt");
 
 const https = require("https");
+const project = require("../models/project");
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false, // (NOTE: this will disable client verification)
   cert: cert,
@@ -312,8 +313,8 @@ router.get("/:user/:project", (req, res, next) => {
       for (let img of project.imgs) {
         try {
           const resp = await get_image_host(
-            req.params.user,
-            req.params.project,
+            project.user_id,
+            project._id,
             "src",
             img.og_img_key
           );
@@ -467,8 +468,8 @@ router.get("/:user/:project/process/url", (req, res, next) => {
 
       for (let r of results) {
         const resp = await get_image_host(
-          r.user_id,
-          r.project_id,
+          project.user_id,
+          project._id,
           "out",
           r.img_key
         );
@@ -654,8 +655,8 @@ router.post(
             contentType: req.file.mimetype,
           });
           const resp = await post_image(
-            req.params.user,
-            req.params.project,
+            project.user_id,
+            project._id,
             "src",
             data
           );

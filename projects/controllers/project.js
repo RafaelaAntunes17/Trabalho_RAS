@@ -22,11 +22,16 @@ module.exports.create = async (project) => {
 };
 
 module.exports.update = (user_id, project_id, project) => {
-  return Project.updateOne({ user_id: user_id, _id: project_id }, project);
+  return Project.updateOne({
+    $or: [{user_id: user_id}, {collaborators: user_id}],
+    _id: project_id },
+    project);
 };
 
 module.exports.delete = (user_id, project_id) => {
-  return Project.deleteOne({ user_id: user_id, _id: project_id });
+  return Project.deleteOne({ 
+    $or: [{user_id: user_id}, {collaborators: user_id}],
+    _id: project_id });
 };
 
 module.exports.generateShareToken = async(user_id, project_id) => {
