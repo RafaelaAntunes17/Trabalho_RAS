@@ -569,8 +569,8 @@ router.post("/:user/:project/preview/:img", (req, res, next) => {
 
       // Retrieve image and store it using file system
       const resp = await get_image_docker(
-        req.params.user,
-        req.params.project,
+        project.user_id,
+        project._id,
         "src",
         img.og_img_key
       );
