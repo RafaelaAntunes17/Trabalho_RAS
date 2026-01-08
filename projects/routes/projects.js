@@ -521,66 +521,109 @@ router.post("/:user", (req, res, next) => {
     .catch((_) => res.status(502).jsonp(`Error creating new project`));
 });
 
+// Preview an image
 router.post("/:user/:project/preview/:img", (req, res, next) => {
-    const activeUserId = req.headers['x-user-id'] || req.params.user;
+  // Get project and create a new process entry
+  console.log("entrou")
+  console.log(req.params.user, req.params.project, req.params.img)
+  Project.getOne(req.params.user, req.params.project)
+    .then(async (project) => {
+      const prev_preview = await Preview.getAll(
+        req.params.user,
+        req.params.project
+      );
 
-    Project.getOne(activeUserId, req.params.project)
-        .then(async (project) => {
-            if (!project) return res.status(404).jsonp("Project not found");
+      for(let p of prev_preview){
+        await delete_image(
+          req.params.user,
+          req.params.project,
+          "preview",
+          p.img_key
+        );
+        await Preview.delete(
+          req.params.user,
+          req.params.project,
+          p.img_id
+        );
+      }
 
-            // We use project.user_id (THE OWNER) for all file system and Minio calls
-            // because that is where the files are actually stored.
-            const ownerId = project.user_id;
+      // Remove previous preview
+      if (prev_preview !== null && prev_preview !== undefined) {
+      }
 
-            const prev_preview = await Preview.getAll(ownerId, project._id);
-            for(let p of prev_preview){
-                await delete_image(ownerId, project._id, "preview", p.img_key);
-                await Preview.delete(ownerId, project._id, p.img_id);
-            }
+      const source_path = `/../images/users/${req.params.user}/projects/${req.params.project}/src`;
+      const result_path = `/../images/users/${req.params.user}/projects/${req.params.project}/preview`;
 
-            const img = project.imgs.filter((i) => i._id == req.params.img)[0];
-            const msg_id = `preview-${uuidv4()}`;
-            const timestamp = new Date().toISOString();
-            const og_img_uri = img.og_uri;
+      if (!fs.existsSync(path.join(__dirname, source_path)))
+        fs.mkdirSync(path.join(__dirname, source_path), { recursive: true });
 
-            // FIX: Use ownerId here to prevent 404
-            const resp = await get_image_docker(ownerId, project._id, "src", img.og_img_key);
-            const url = resp.data.url;
+      if (!fs.existsSync(path.join(__dirname, result_path)))
+        fs.mkdirSync(path.join(__dirname, result_path), { recursive: true });
 
-            const img_resp = await axios.get(url, { responseType: "stream" });
-            const writer = fs.createWriteStream(og_img_uri);
-            await new Promise((resolve, reject) => {
-                writer.on("finish", resolve);
-                writer.on("error", reject);
-                img_resp.data.pipe(writer);
-            });
+      // Retrive image information
+      const img = project.imgs.filter((i) => i._id == req.params.img)[0];
+      const msg_id = `preview-${uuidv4()}`;
+      const timestamp = new Date().toISOString();
+      const og_img_uri = img.og_uri;
+      const img_id = img._id;
 
-            const img_name_parts = img.new_uri.split("/");
-            const img_name = img_name_parts[img_name_parts.length - 1];
+      // Retrieve image and store it using file system
+      const resp = await get_image_docker(
+        req.params.user,
+        req.params.project,
+        "src",
+        img.og_img_key
+      );
+      const url = resp.data.url;
 
-            // FIX: The path on disk also belongs to the owner's folder
-            const new_img_uri = `./images/users/${ownerId}/projects/${project._id}/preview/${img_name}`;
+      const img_resp = await axios.get(url, { responseType: "stream" });
 
-            const tool = project.tools.filter((t) => t.position == 0)[0];
+      const writer = fs.createWriteStream(og_img_uri);
 
-            const process = {
-                // USE activeUserId HERE: This ensures the COLLABORATOR gets the notification
-                user_id: activeUserId,
-                project_id: project._id,
-                img_id: img._id,
-                msg_id: msg_id,
-                cur_pos: 0,
-                og_img_uri: og_img_uri,
-                new_img_uri: new_img_uri,
-            };
+      // Use a Promise to handle the stream completion
+      await new Promise((resolve, reject) => {
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+        img_resp.data.pipe(writer); // Pipe AFTER setting up the event handlers
+      });
 
-            await Process.create(process);
-            send_msg_tool(msg_id, timestamp, og_img_uri, new_img_uri, tool.procedure, tool.params);
-            res.sendStatus(201);
+      const img_name_parts = img.new_uri.split("/");
+      const img_name = img_name_parts[img_name_parts.length - 1];
+      const new_img_uri = `./images/users/${req.params.user}/projects/${req.params.project}/preview/${img_name}`;
+
+      const tool = project.tools.filter((t) => t.position == 0)[0];
+      const tool_name = tool.procedure;
+      const params = tool.params;
+
+      const process = {
+        user_id: req.params.user,
+        project_id: req.params.project,
+        img_id: img_id,
+        msg_id: msg_id,
+        cur_pos: 0,
+        og_img_uri: og_img_uri,
+        new_img_uri: new_img_uri,
+      };
+
+      // Making sure database entry is created before sending message to avoid conflicts
+      Process.create(process)
+        .then((_) => {
+          send_msg_tool(
+            msg_id,
+            timestamp,
+            og_img_uri,
+            new_img_uri,
+            tool_name,
+            params
+          );
+          res.sendStatus(201);
         })
-        .catch((err) => res.status(501).jsonp(`Error: ${err.message}`));
+        .catch((_) =>
+          res.status(603).jsonp(`Error creating preview process request`)
+        );
+    })
+    .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
-
 
 // Add new image to a project
 router.post(
@@ -817,7 +860,7 @@ router.post("/:user/:project/process", (req, res, next) => {
             const params = tool.params;
 
             const process = {
-              user_id: req.headers['x-user-id'] || req.params.user,
+              user_id: req.params.user,
               project_id: req.params.project,
               img_id: img._id,
               msg_id: msg_id,
