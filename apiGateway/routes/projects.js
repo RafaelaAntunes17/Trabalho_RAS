@@ -15,9 +15,9 @@ const key = fs.readFileSync(__dirname + "/../certs/selfsigned.key");
 const cert = fs.readFileSync(__dirname + "/../certs/selfsigned.crt");
 
 const httpsAgent = new https.Agent({
-  rejectUnauthorized: false, // (NOTE: this will disable client verification)
-  cert: cert,
-  key: key,
+    rejectUnauthorized: false, // (NOTE: this will disable client verification)
+    cert: cert,
+    key: key,
 });
 
 const storage = multer.memoryStorage();
@@ -72,10 +72,10 @@ Post answer structure in case of success
  * @returns List of projects, each project has no information about it's images or tools
  */
 router.get("/:user", auth.checkToken, function (req, res, next) {
-  axios
-    .get(projectsURL + `${req.params.user}`, { httpsAgent: httpsAgent })
-    .then((resp) => res.status(200).jsonp(resp.data))
-    .catch((err) => res.status(500).jsonp("Error getting users"));
+    axios
+        .get(projectsURL + `${req.params.user}`, { httpsAgent: httpsAgent })
+        .then((resp) => res.status(200).jsonp(resp.data))
+        .catch((err) => res.status(500).jsonp("Error getting users"));
 });
 
 /**
@@ -84,12 +84,12 @@ router.get("/:user", auth.checkToken, function (req, res, next) {
  * @returns The required project
  */
 router.get("/:user/:project", auth.checkToken, function (req, res, next) {
-  axios
-    .get(projectsURL + `${req.params.user}/${req.params.project}`, {
-      httpsAgent: httpsAgent,
-    })
-    .then((resp) => res.status(200).jsonp(resp.data))
-    .catch((err) => res.status(500).jsonp("Error getting project"));
+    axios
+        .get(projectsURL + `${req.params.user}/${req.params.project}`, {
+            httpsAgent: httpsAgent,
+        })
+        .then((resp) => res.status(200).jsonp(resp.data))
+        .catch((err) => res.status(500).jsonp("Error getting project"));
 });
 
 /**
@@ -98,22 +98,22 @@ router.get("/:user/:project", auth.checkToken, function (req, res, next) {
  * @returns The image url
  */
 router.get(
-  "/:user/:project/img/:img",
-  auth.checkToken,
-  function (req, res, next) {
-    axios
-      .get(
-        projectsURL +
-          `${req.params.user}/${req.params.project}/img/${req.params.img}`,
-        {
-          httpsAgent: httpsAgent,
-        }
-      )
-      .then((resp) => {
-        res.status(200).send(resp.data);
-      })
-      .catch((err) => res.status(500).jsonp("Error getting project image"));
-  }
+    "/:user/:project/img/:img",
+    auth.checkToken,
+    function (req, res, next) {
+        axios
+            .get(
+                projectsURL +
+                `${req.params.user}/${req.params.project}/img/${req.params.img}`,
+                {
+                    httpsAgent: httpsAgent,
+                }
+            )
+            .then((resp) => {
+                res.status(200).send(resp.data);
+            })
+            .catch((err) => res.status(500).jsonp("Error getting project image"));
+    }
 );
 
 /**
@@ -122,14 +122,14 @@ router.get(
  * @returns The project's images
  */
 router.get("/:user/:project/imgs", auth.checkToken, function (req, res, next) {
-  axios
-    .get(projectsURL + `${req.params.user}/${req.params.project}/imgs`, {
-      httpsAgent: httpsAgent,
-    })
-    .then((resp) => {
-      res.status(200).send(resp.data);
-    })
-    .catch((err) => res.status(500).jsonp("Error getting project images"));
+    axios
+        .get(projectsURL + `${req.params.user}/${req.params.project}/imgs`, {
+            httpsAgent: httpsAgent,
+        })
+        .then((resp) => {
+            res.status(200).send(resp.data);
+        })
+        .catch((err) => res.status(500).jsonp("Error getting project images"));
 });
 
 /**
@@ -138,19 +138,19 @@ router.get("/:user/:project/imgs", auth.checkToken, function (req, res, next) {
  * @returns The required results, sent as a zip
  */
 router.get(
-  "/:user/:project/process",
-  auth.checkToken,
-  function (req, res, next) {
-    axios
-      .get(projectsURL + `${req.params.user}/${req.params.project}/process`, {
-        httpsAgent: httpsAgent,
-        responseType: "arraybuffer",
-      })
-      .then((resp) => res.status(200).send(resp.data))
-      .catch((err) =>
-        res.status(500).jsonp("Error getting processing results file")
-      );
-  }
+    "/:user/:project/process",
+    auth.checkToken,
+    function (req, res, next) {
+        axios
+            .get(projectsURL + `${req.params.user}/${req.params.project}/process`, {
+                httpsAgent: httpsAgent,
+                responseType: "arraybuffer",
+            })
+            .then((resp) => res.status(200).send(resp.data))
+            .catch((err) =>
+                res.status(500).jsonp("Error getting processing results file")
+            );
+    }
 );
 
 /**
@@ -159,23 +159,23 @@ router.get(
  * @returns The required results, sent as [{img_id, img_name, url}]
  */
 router.get(
-  "/:user/:project/process/url",
-  auth.checkToken,
-  function (req, res, next) {
-    axios
-      .get(
-        projectsURL + `${req.params.user}/${req.params.project}/process/url`,
-        {
-          httpsAgent: httpsAgent,
-        }
-      )
-      .then((resp) => {
-        res.status(200).send(resp.data);
-      })
-      .catch((err) =>
-        res.status(500).jsonp("Error getting processing results")
-      );
-  }
+    "/:user/:project/process/url",
+    auth.checkToken,
+    function (req, res, next) {
+        axios
+            .get(
+                projectsURL + `${req.params.user}/${req.params.project}/process/url`,
+                {
+                    httpsAgent: httpsAgent,
+                }
+            )
+            .then((resp) => {
+                res.status(200).send(resp.data);
+            })
+            .catch((err) =>
+                res.status(500).jsonp("Error getting processing results")
+            );
+    }
 );
 
 /**
@@ -184,12 +184,12 @@ router.get(
  * @returns Created project's data
  */
 router.post("/:user", auth.checkToken, function (req, res, next) {
-  axios
-    .post(projectsURL + `${req.params.user}`, req.body, {
-      httpsAgent: httpsAgent,
-    })
-    .then((resp) => res.status(201).jsonp(resp.data))
-    .catch((err) => res.status(500).jsonp("Error creating new project"));
+    axios
+        .post(projectsURL + `${req.params.user}`, req.body, {
+            httpsAgent: httpsAgent,
+        })
+        .then((resp) => res.status(201).jsonp(resp.data))
+        .catch((err) => res.status(500).jsonp("Error creating new project"));
 });
 
 /**
@@ -227,30 +227,30 @@ router.post(
  * @returns Post answer structure in case of success
  */
 router.post(
-  "/:user/:project/img",
-  upload.single("image"),
-  auth.checkToken,
-  function (req, res, next) {
-    const data = new FormData();
-    data.append("image", req.file.buffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
-    });
+    "/:user/:project/img",
+    upload.single("image"),
+    auth.checkToken,
+    function (req, res, next) {
+        const data = new FormData();
+        data.append("image", req.file.buffer, {
+            filename: req.file.originalname,
+            contentType: req.file.mimetype,
+        });
 
-    axios
-      .post(
-        projectsURL + `${req.params.user}/${req.params.project}/img`,
-        data,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          httpsAgent: httpsAgent,
-        }
-      )
-      .then((resp) => res.sendStatus(201))
-      .catch((err) => res.status(500).jsonp("Error adding image to project"));
-  }
+        axios
+            .post(
+                projectsURL + `${req.params.user}/${req.params.project}/img`,
+                data,
+                {
+                    headers: {
+                        "Content-Type": "multipart/form-data",
+                    },
+                    httpsAgent: httpsAgent,
+                }
+            )
+            .then((resp) => res.sendStatus(201))
+            .catch((err) => res.status(500).jsonp("Error adding image to project"));
+    }
 );
 
 /**
@@ -259,14 +259,14 @@ router.post(
  * @returns Post answer structure in case of success
  */
 router.post("/:user/:project/tool", auth.checkToken, function (req, res, next) {
-  axios
-    .post(
-      projectsURL + `${req.params.user}/${req.params.project}/tool`,
-      req.body,
-      { httpsAgent: httpsAgent }
-    )
-    .then((resp) => res.status(201).jsonp(resp.data))
-    .catch((err) => res.status(500).jsonp("Error adding tool to project"));
+    axios
+        .post(
+            projectsURL + `${req.params.user}/${req.params.project}/tool`,
+            req.body,
+            { httpsAgent: httpsAgent }
+        )
+        .then((resp) => res.status(201).jsonp(resp.data))
+        .catch((err) => res.status(500).jsonp("Error adding tool to project"));
 });
 
 /**
@@ -275,18 +275,18 @@ router.post("/:user/:project/tool", auth.checkToken, function (req, res, next) {
  * @returns Post answer structure in case of success
  */
 router.post(
-  "/:user/:project/reorder",
-  auth.checkToken,
-  function (req, res, next) {
-    axios
-      .post(
-        projectsURL + `${req.params.user}/${req.params.project}/reorder`,
-        req.body,
-        { httpsAgent: httpsAgent }
-      )
-      .then((resp) => res.status(201).jsonp(resp.data))
-      .catch((err) => res.status(500).jsonp("Error reordering tools"));
-  }
+    "/:user/:project/reorder",
+    auth.checkToken,
+    function (req, res, next) {
+        axios
+            .post(
+                projectsURL + `${req.params.user}/${req.params.project}/reorder`,
+                req.body,
+                { httpsAgent: httpsAgent }
+            )
+            .then((resp) => res.status(201).jsonp(resp.data))
+            .catch((err) => res.status(500).jsonp("Error reordering tools"));
+    }
 );
 
 /**
@@ -321,12 +321,12 @@ router.post(
  * @returns Empty
  */
 router.put("/:user/:project", auth.checkToken, function (req, res, next) {
-  axios
-    .put(projectsURL + `${req.params.user}/${req.params.project}`, req.body, {
-      httpsAgent: httpsAgent,
-    })
-    .then((_) => res.sendStatus(204))
-    .catch((err) => res.status(500).jsonp("Error updating project details"));
+    axios
+        .put(projectsURL + `${req.params.user}/${req.params.project}`, req.body, {
+            httpsAgent: httpsAgent,
+        })
+        .then((_) => res.sendStatus(204))
+        .catch((err) => res.status(500).jsonp("Error updating project details"));
 });
 
 /**
@@ -335,19 +335,19 @@ router.put("/:user/:project", auth.checkToken, function (req, res, next) {
  * @returns Empty
  */
 router.put(
-  "/:user/:project/tool/:tool",
-  auth.checkToken,
-  function (req, res, next) {
-    axios
-      .put(
-        projectsURL +
-          `${req.params.user}/${req.params.project}/tool/${req.params.tool}`,
-        req.body,
-        { httpsAgent: httpsAgent }
-      )
-      .then((_) => res.sendStatus(204))
-      .catch((err) => res.status(500).jsonp("Error updating tool params"));
-  }
+    "/:user/:project/tool/:tool",
+    auth.checkToken,
+    function (req, res, next) {
+        axios
+            .put(
+                projectsURL +
+                `${req.params.user}/${req.params.project}/tool/${req.params.tool}`,
+                req.body,
+                { httpsAgent: httpsAgent }
+            )
+            .then((_) => res.sendStatus(204))
+            .catch((err) => res.status(500).jsonp("Error updating tool params"));
+    }
 );
 
 /**
@@ -356,12 +356,12 @@ router.put(
  * @returns Empty
  */
 router.delete("/:user/:project", auth.checkToken, function (req, res, next) {
-  axios
-    .delete(projectsURL + `${req.params.user}/${req.params.project}`, {
-      httpsAgent: httpsAgent,
-    })
-    .then((_) => res.sendStatus(204))
-    .catch((err) => res.status(500).jsonp("Error deleting project"));
+    axios
+        .delete(projectsURL + `${req.params.user}/${req.params.project}`, {
+            httpsAgent: httpsAgent,
+        })
+        .then((_) => res.sendStatus(204))
+        .catch((err) => res.status(500).jsonp("Error deleting project"));
 });
 
 /**
@@ -370,20 +370,20 @@ router.delete("/:user/:project", auth.checkToken, function (req, res, next) {
  * @returns Empty
  */
 router.delete(
-  "/:user/:project/img/:img",
-  auth.checkToken,
-  function (req, res, next) {
-    axios
-      .delete(
-        projectsURL +
-          `${req.params.user}/${req.params.project}/img/${req.params.img}`,
-        { httpsAgent: httpsAgent }
-      )
-      .then((_) => res.sendStatus(204))
-      .catch((err) =>
-        res.status(500).jsonp("Error deleting image from project")
-      );
-  }
+    "/:user/:project/img/:img",
+    auth.checkToken,
+    function (req, res, next) {
+        axios
+            .delete(
+                projectsURL +
+                `${req.params.user}/${req.params.project}/img/${req.params.img}`,
+                { httpsAgent: httpsAgent }
+            )
+            .then((_) => res.sendStatus(204))
+            .catch((err) =>
+                res.status(500).jsonp("Error deleting image from project")
+            );
+    }
 );
 
 /**
@@ -392,20 +392,20 @@ router.delete(
  * @returns Empty
  */
 router.delete(
-  "/:user/:project/tool/:tool",
-  auth.checkToken,
-  function (req, res, next) {
-    axios
-      .delete(
-        projectsURL +
-          `${req.params.user}/${req.params.project}/tool/${req.params.tool}`,
-        { httpsAgent: httpsAgent }
-      )
-      .then((_) => res.sendStatus(204))
-      .catch((err) =>
-        res.status(500).jsonp("Error removing tool from project")
-      );
-  }
+    "/:user/:project/tool/:tool",
+    auth.checkToken,
+    function (req, res, next) {
+        axios
+            .delete(
+                projectsURL +
+                `${req.params.user}/${req.params.project}/tool/${req.params.tool}`,
+                { httpsAgent: httpsAgent }
+            )
+            .then((_) => res.sendStatus(204))
+            .catch((err) =>
+                res.status(500).jsonp("Error removing tool from project")
+            );
+    }
 );
 
 /**
@@ -414,13 +414,13 @@ router.delete(
  * @returns Share token string
  */
 router.post("/:user/:project/share", auth.checkToken, function (req, res, next) {
-  axios
-    .post(projectsURL + `${req.params.project}/share`, req.body, {
-      httpsAgent: httpsAgent,
-      headers: {"x-user-id": req.params.user}
-    })
-    .then ((resp) => res.status(201).jsonp(resp.data))
-    .catch((err) => res.status(500).jsonp("Error generating share token"));
+    axios
+        .post(projectsURL + `${req.params.project}/share`, req.body, {
+            httpsAgent: httpsAgent,
+            headers: {"x-user-id": req.params.user}
+        })
+        .then ((resp) => res.status(201).jsonp(resp.data))
+        .catch((err) => res.status(500).jsonp("Error generating share token"));
 });
 
 /**
@@ -429,13 +429,13 @@ router.post("/:user/:project/share", auth.checkToken, function (req, res, next) 
  * @returns Joined project's data
  */
 router.post("/:user/join/:token", auth.checkToken, function (req, res, next) {
-  axios
-    .post(projectsURL + `join/${req.params.token}`, req.body, {
-      httpsAgent: httpsAgent,
-      headers: {"x-user-id": req.params.user}
-    })
-    .then((resp) => res.status(201).jsonp(resp.data))
-    .catch((err) => res.status(500).jsonp("Error joining shared project"));
+    axios
+        .post(projectsURL + `join/${req.params.token}`, req.body, {
+            httpsAgent: httpsAgent,
+            headers: {"x-user-id": req.params.user}
+        })
+        .then((resp) => res.status(201).jsonp(resp.data))
+        .catch((err) => res.status(500).jsonp("Error joining shared project"));
 })
 
 module.exports = router;
