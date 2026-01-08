@@ -213,8 +213,8 @@ function process_msg() {
                 );
 
                 const resp = await post_image(
-                    process.user_id,
-                    process.project_id,
+                    project.user_id,
+                    project._id,
                     "out",
                     data
                 );
@@ -228,7 +228,7 @@ function process_msg() {
                     img_key: og_key,
                     img_id: img_id,
                     project_id: process.project_id,
-                    user_id: process.user_id,
+                    user_id: project.user_id,
                 };
 
                 await Result.create(result);
@@ -491,35 +491,39 @@ router.get("/:user/:project/process", (req, res, next) => {
 
 // Get results of processing a project
 router.get("/:user/:project/process/url", (req, res, next) => {
-  // Getting last processed request from project in order to get their result's path
-
+  // 1. Verificar permissão de quem pede (Dono ou Colaborador)
   Project.getOne(req.params.user, req.params.project)
-    .then(async (_) => {
-      const ans = {
-        'imgs': [],
-        'texts': []
-      };
-      const results = await Result.getAll(req.params.user, req.params.project);
+    .then(async (project) => { // MUDADO: de "_" para "project"
+      if (!project) return res.status(404).jsonp("Projeto não encontrado");
+
+      const ans = { 'imgs': [], 'texts': [] };
+
+      // 2. BUSCAR RESULTADOS DO DONO (project.user_id)
+      const results = await Result.getAll(project.user_id, project._id);
 
       for (let r of results) {
+        // 3. GERAR URLS DA PASTA DO DONO
         const resp = await get_image_host(
-          r.user_id,
-          r.project_id,
+          project.user_id, 
+          project._id,
           "out",
           r.img_key
         );
         const url = resp.data.url;
 
-        if(r.type == 'text') ans.texts.push({ og_img_id : r.img_id, name: r.file_name, url: url })
-
-        else ans.imgs.push({ og_img_id : r.img_id, name: r.file_name, url: url })
+        if (r.type == 'text') {
+            ans.texts.push({ og_img_id: r.img_id, name: r.file_name, url: url });
+        } else {
+            ans.imgs.push({ og_img_id: r.img_id, name: r.file_name, url: url });
+        }
       }
 
       res.status(200).jsonp(ans);
     })
-    .catch((_) =>
-      res.status(601).jsonp(`Error acquiring project's processing result`)
-    );
+    .catch((err) => {
+      console.error(err);
+      res.status(601).jsonp(`Error acquiring results`);
+    });
 });
 
 
