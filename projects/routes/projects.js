@@ -397,94 +397,128 @@ router.get("/:user/:project/imgs", async (req, res, next) => {
 
 // Get results of processing a project
 router.get("/:user/:project/process", (req, res, next) => {
-    // Getting last processed request from project in order to get their result's path
+  const format = req.query.format || "zip"; // Lê o formato da query string (padrão: zip)
 
-    Project.getOne(req.params.user, req.params.project)
-        .then(async (_) => {
-            const zip = new JSZip();
-            const results = await Result.getAll(req.params.user, req.params.project);
+  Project.getOne(req.params.user, req.params.project)
+    .then(async (_) => {
+      const results = await Result.getAll(req.params.user, req.params.project);
 
-            const result_path = `/../images/users/${req.params.user}/projects/${req.params.project}/tmp`;
+      // --- OPÇÃO JSON ---
+      if (format === "json") {
+        const jsonOutput = {
+          projectId: req.params.project,
+          userId: req.params.user,
+          generatedAt: new Date().toISOString(),
+          results: []
+        };
 
-            fs.mkdirSync(path.join(__dirname, result_path), { recursive: true });
+        for (let r of results) {
+          // Obter URL assinada ou pública para incluir no JSON
+          const resp = await get_image_docker(
+            r.user_id,
+            r.project_id,
+            "out",
+            r.img_key
+          );
+          jsonOutput.results.push({
+            fileName: r.file_name,
+            type: r.type,
+            url: resp.data.url
+          });
+        }
 
-            for (let r of results) {
-                const res_path = path.join(__dirname, result_path, r.file_name);
+        const fileName = `user_${req.params.user}_project_${req.params.project}_results.json`;
+        
+        res.set("Content-Type", "application/json");
+        res.set("Content-Disposition", `attachment; filename=${fileName}`);
+        return res.status(200).send(JSON.stringify(jsonOutput, null, 2));
+      }
 
-                const resp = await get_image_docker(
-                    r.user_id,
-                    r.project_id,
-                    "out",
-                    r.img_key
-                );
-                const url = resp.data.url;
+      // --- OPÇÃO ZIP (Lógica Original) ---
+      const zip = new JSZip();
+      const result_path = `/../images/users/${req.params.user}/projects/${req.params.project}/tmp`;
 
-                const file_resp = await axios.get(url, { responseType: "stream" });
-                const writer = fs.createWriteStream(res_path);
+      if (!fs.existsSync(path.join(__dirname, result_path))) {
+        fs.mkdirSync(path.join(__dirname, result_path), { recursive: true });
+      }
 
-                // Use a Promise to handle the stream completion
-                await new Promise((resolve, reject) => {
-                    writer.on("finish", resolve);
-                    writer.on("error", reject);
-                    file_resp.data.pipe(writer); // Pipe AFTER setting up the event handlers
-                });
+      for (let r of results) {
+        const res_path = path.join(__dirname, result_path, r.file_name);
 
-                const fs_res = fs.readFileSync(res_path);
-                zip.file(r.file_name, fs_res);
-            }
-
-            fs.rmSync(path.join(__dirname, result_path), {
-                recursive: true,
-                force: true,
-            });
-
-            const ans = await zip.generateAsync({ type: "blob" });
-
-            res.type(ans.type);
-            res.set(
-                "Content-Disposition",
-                `attachment; filename=user_${req.params.user}_project_${req.params.project}_results.zip`
-            );
-            const b = await ans.arrayBuffer();
-            res.status(200).send(Buffer.from(b));
-        })
-        .catch((_) =>
-            res.status(601).jsonp(`Error acquiring project's processing result`)
+        const resp = await get_image_docker(
+          r.user_id,
+          r.project_id,
+          "out",
+          r.img_key
         );
+        const url = resp.data.url;
+
+        const file_resp = await axios.get(url, { responseType: "stream" });
+        const writer = fs.createWriteStream(res_path);
+
+        await new Promise((resolve, reject) => {
+          writer.on("finish", resolve);
+          writer.on("error", reject);
+          file_resp.data.pipe(writer);
+        });
+
+        const fs_res = fs.readFileSync(res_path);
+        zip.file(r.file_name, fs_res);
+      }
+
+      fs.rmSync(path.join(__dirname, result_path), {
+        recursive: true,
+        force: true,
+      });
+
+      const ans = await zip.generateAsync({ type: "blob" });
+
+      res.type(ans.type);
+      res.set(
+        "Content-Disposition",
+        `attachment; filename=user_${req.params.user}_project_${req.params.project}_results.zip`
+      );
+      const b = await ans.arrayBuffer();
+      res.status(200).send(Buffer.from(b));
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(601).jsonp(`Error acquiring project's processing result`);
+    });
 });
 
 
 // Get results of processing a project
 router.get("/:user/:project/process/url", (req, res, next) => {
-    // Getting last processed request from project in order to get their result's path
+  // Getting last processed request from project in order to get their result's path
 
-    Project.getOne(req.params.user, req.params.project)
-        .then(async (_) => {
-            const ans = {
-                'imgs': [],
-                'texts': []
-            };
-            const results = await Result.getAll(req.params.user, req.params.project);
+  Project.getOne(req.params.user, req.params.project)
+    .then(async (_) => {
+      const ans = {
+        'imgs': [],
+        'texts': []
+      };
+      const results = await Result.getAll(req.params.user, req.params.project);
 
-            for (let r of results) {
-                const resp = await get_image_host(
-                    project.user_id,
-                    project._id,
-                    "out",
-                    r.img_key
-                );
-                const url = resp.data.url;
-
-                if(r.type == 'text') ans.texts.push({ og_img_id : r.img_id, name: r.file_name, url: url })
-
-                else ans.imgs.push({ og_img_id : r.img_id, name: r.file_name, url: url })
-            }
-
-            res.status(200).jsonp(ans);
-        })
-        .catch((_) =>
-            res.status(601).jsonp(`Error acquiring project's processing result`)
+      for (let r of results) {
+        const resp = await get_image_host(
+          r.user_id,
+          r.project_id,
+          "out",
+          r.img_key
         );
+        const url = resp.data.url;
+
+        if(r.type == 'text') ans.texts.push({ og_img_id : r.img_id, name: r.file_name, url: url })
+
+        else ans.imgs.push({ og_img_id : r.img_id, name: r.file_name, url: url })
+      }
+
+      res.status(200).jsonp(ans);
+    })
+    .catch((_) =>
+      res.status(601).jsonp(`Error acquiring project's processing result`)
+    );
 });
 
 
@@ -719,139 +753,81 @@ router.post("/:user/:project/reorder", (req, res, next) => {
 
 // Process a specific project
 router.post("/:user/:project/process", (req, res, next) => {
-    // Get project and create a new process entry
-    Project.getOne(req.params.user, req.params.project)
+    const activeUserId = req.headers['x-user-id'] || req.params.user;
+
+    Project.getOne(activeUserId, req.params.project)
         .then(async (project) => {
+            if (!project) return res.status(404).jsonp("Projeto não encontrado");
+
+            // 1. Limpar resultados anteriores na pasta do DONO
             try {
-                const prev_results = await Result.getAll(
-                    req.params.user,
-                    req.params.project
-                );
+                const prev_results = await Result.getAll(project.user_id, project._id);
                 for (let r of prev_results) {
-                    await delete_image(
-                        req.params.user,
-                        req.params.project,
-                        "out",
-                        r.img_key
-                    );
-                    await Result.delete(r.user_id, r.project_id, r.img_id);
+                    await delete_image(project.user_id, project._id, "out", r.img_key);
+                    await Result.delete(project.user_id, project._id, r.img_id);
                 }
             } catch (_) {
-                res.status(400).jsonp("Error deleting previous results");
-                return;
+                return res.status(400).jsonp("Erro ao limpar resultados anteriores");
             }
 
-            if (project.tools.length == 0) {
-                res.status(400).jsonp("No tools selected");
-                return;
-            }
+            if (project.tools.length == 0) return res.status(400).jsonp("Nenhuma ferramenta selecionada");
 
             const adv_tools = advanced_tool_num(project);
-            axios
-                .get(users_ms + `${req.params.user}/process/${adv_tools}`, {
-                    httpsAgent: httpsAgent,
-                })
+            axios.get(users_ms + `${activeUserId}/process/${adv_tools}`, { httpsAgent: httpsAgent })
                 .then(async (resp) => {
-                    const can_process = resp.data;
+                    if (!resp.data) return res.status(404).jsonp("Limite de operações diárias atingido");
 
-                    if (!can_process) {
-                        res.status(404).jsonp("No more daily_operations available");
-                        return;
-                    }
-
-                    const source_path = `/../images/users/${req.params.user}/projects/${req.params.project}/src`;
-                    const result_path = `/../images/users/${req.params.user}/projects/${req.params.project}/out`;
+                    // 2. Caminhos no Sistema de Ficheiros (Sempre na pasta do DONO)
+                    const source_path = `/../images/users/${project.user_id}/projects/${project._id}/src`;
+                    const result_path = `/../images/users/${project.user_id}/projects/${project._id}/out`;
 
                     if (fs.existsSync(path.join(__dirname, source_path)))
-                        fs.rmSync(path.join(__dirname, source_path), {
-                            recursive: true,
-                            force: true,
-                        });
-
+                        fs.rmSync(path.join(__dirname, source_path), { recursive: true, force: true });
                     fs.mkdirSync(path.join(__dirname, source_path), { recursive: true });
 
                     if (fs.existsSync(path.join(__dirname, result_path)))
-                        fs.rmSync(path.join(__dirname, result_path), {
-                            recursive: true,
-                            force: true,
-                        });
-
+                        fs.rmSync(path.join(__dirname, result_path), { recursive: true, force: true });
                     fs.mkdirSync(path.join(__dirname, result_path), { recursive: true });
 
-                    let error = false;
+                    let errorOccured = false;
 
                     for (let img of project.imgs) {
-                        let url = "";
                         try {
-                            const resp = await get_image_docker(
-                                req.params.user,
-                                req.params.project,
-                                "src",
-                                img.og_img_key
-                            );
-                            url = resp.data.url;
-
-                            const img_resp = await axios.get(url, { responseType: "stream" });
+                            // 3. Buscar imagem original do MinIO (Pasta do DONO)
+                            const respImg = await get_image_docker(project.user_id, project._id, "src", img.og_img_key);
+                            const img_resp = await axios.get(respImg.data.url, { responseType: "stream" });
 
                             const writer = fs.createWriteStream(img.og_uri);
-
-                            // Use a Promise to handle the stream completion
                             await new Promise((resolve, reject) => {
                                 writer.on("finish", resolve);
                                 writer.on("error", reject);
-                                img_resp.data.pipe(writer); // Pipe AFTER setting up the event handlers
+                                img_resp.data.pipe(writer);
                             });
-                        } catch (_) {
-                            res.status(400).jsonp("Error acquiring source images");
-                            return;
+
+                            const msg_id = `request-${uuidv4()}`;
+                            const process = {
+                                user_id: activeUserId, // Quem recebe a notificação
+                                project_id: project._id,
+                                img_id: img._id,
+                                msg_id: msg_id,
+                                cur_pos: 0,
+                                og_img_uri: img.og_uri,
+                                new_img_uri: img.new_uri,
+                            };
+
+                            await Process.create(process);
+                            send_msg_tool(msg_id, new Date().toISOString(), process.og_img_uri, process.new_img_uri, project.tools[0].procedure, project.tools[0].params);
+                        } catch (e) {
+                            errorOccured = true;
                         }
-
-                        const msg_id = `request-${uuidv4()}`;
-                        const timestamp = new Date().toISOString();
-
-                        const og_img_uri = img.og_uri;
-                        const new_img_uri = img.new_uri;
-                        const tool = project.tools.filter((t) => t.position === 0)[0];
-
-                        const tool_name = tool.procedure;
-                        const params = tool.params;
-
-                        const process = {
-                            user_id: req.headers['x-user-id'] || req.params.user,
-                            project_id: req.params.project,
-                            img_id: img._id,
-                            msg_id: msg_id,
-                            cur_pos: 0,
-                            og_img_uri: og_img_uri,
-                            new_img_uri: new_img_uri,
-                        };
-
-                        // Making sure database entry is created before sending message to avoid conflicts
-                        await Process.create(process)
-                            .then((_) => {
-                                send_msg_tool(
-                                    msg_id,
-                                    timestamp,
-                                    og_img_uri,
-                                    new_img_uri,
-                                    tool_name,
-                                    params
-                                );
-                            })
-                            .catch((_) => (error = true));
                     }
 
-                    if (error)
-                        res
-                            .status(603)
-                            .jsonp(
-                                `There were some erros creating all process requests. Some results can be invalid.`
-                            );
+                    if (errorOccured) res.status(603).jsonp("Alguns pedidos falharam.");
                     else res.sendStatus(201);
                 })
-                .catch((_) => res.status(400).jsonp(`Error checking if can process`));
+                .catch((_) => res.status(400).jsonp("Erro ao verificar conta do utilizador"));
         })
-        .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
+        .catch((_) => res.status(501).jsonp("Erro ao adquirir projeto"));
 });
 
 // Update a specific project
