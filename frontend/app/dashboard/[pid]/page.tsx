@@ -241,7 +241,7 @@ const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
                   <AddImagesDialog />
                 </>
               )}
-              <ShareLink projectId={project.data._id} projectName={project.data.name} />
+              <ShareLink projectId={project.data._id} projectName={project.data.name} currentUserId={session.user._id} />
 <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="px-3 gap-2" title="Download Options">
