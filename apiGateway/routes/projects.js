@@ -198,22 +198,26 @@ router.post("/:user", auth.checkToken, function (req, res, next) {
  * @returns String indication preview is being processed
  */
 router.post(
-  "/:user/:project/preview/:img",
-  auth.checkToken,
-  function (req, res, next) {
-    axios
-      .post(
-        projectsURL +
-          `${req.params.user}/${req.params.project}/preview/${req.params.img}`,
-        req.body,
-        { httpsAgent: httpsAgent }
-      )
-      .then((resp) => res.status(201).jsonp(resp.data))
-      .catch((err) => {
-        console.log(err);
-        res.status(500).jsonp("Error requesting image preview");
-      });
-  }
+    "/:user/:project/preview/:img",
+    auth.checkToken,
+    function (req, res, next) {
+        axios
+            .post(
+                projectsURL +
+                `${req.params.user}/${req.params.project}/preview/${req.params.img}`,
+                req.body,
+                {
+                    httpsAgent: httpsAgent,
+                    // ADD THIS HEADER:
+                    headers: { "x-user-id": req.params.user }
+                }
+            )
+            .then((resp) => res.status(201).jsonp(resp.data))
+            .catch((err) => {
+                console.log(err);
+                res.status(500).jsonp("Error requesting image preview");
+            });
+    }
 );
 
 /**
@@ -291,20 +295,24 @@ router.post(
  * @returns String indicating process request has been created
  */
 router.post(
-  "/:user/:project/process",
-  auth.checkToken,
-  function (req, res, next) {
-    axios
-      .post(
-        projectsURL + `${req.params.user}/${req.params.project}/process`,
-        req.body,
-        { httpsAgent: httpsAgent }
-      )
-      .then((resp) => res.status(201).jsonp(resp.data))
-      .catch((err) =>
-        res.status(500).jsonp("Error requesting project processing")
-      );
-  }
+    "/:user/:project/process",
+    auth.checkToken,
+    function (req, res, next) {
+        axios
+            .post(
+                projectsURL + `${req.params.user}/${req.params.project}/process`,
+                req.body,
+                {
+                    httpsAgent: httpsAgent,
+                    // ADD THIS HEADER:
+                    headers: { "x-user-id": req.params.user }
+                }
+            )
+            .then((resp) => res.status(201).jsonp(resp.data))
+            .catch((err) =>
+                res.status(500).jsonp("Error requesting project processing")
+            );
+    }
 );
 
 /**
