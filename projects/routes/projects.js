@@ -395,6 +395,7 @@ router.get("/:user/:project/imgs", async (req, res, next) => {
         .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
+
 // Get results of processing a project
 router.get("/:user/:project/process", (req, res, next) => {
   const format = req.query.format || "zip"; // Lê o formato da query string (padrão: zip)
@@ -727,28 +728,43 @@ router.post("/:user/:project/tool", (req, res, next) => {
 });
 
 // Reorder tools of a project
+// Reorder tools of a project
 router.post("/:user/:project/reorder", (req, res, next) => {
-    // Remove all tools from project and reinsert them according to new order
-    Project.getOne(req.params.user, req.params.project)
-        .then((project) => {
-            project["tools"] = [];
+  Project.getOne(req.params.user, req.params.project)
+    .then(async (project) => {
+      // 1. Criar uma nova lista temporária apenas com os dados essenciais
+      const newTools = [];
+      
+      // req.body deve ser o array de ferramentas na nova ordem
+      if (req.body && Array.isArray(req.body)) {
+          for (let i = 0; i < req.body.length; i++) {
+            const t = req.body[i];
+            newTools.push({
+              position: i, // <--- Forçamos a posição correta aqui (0, 1, 2...)
+              procedure: t.procedure,
+              params: t.params
+              // Não incluímos o _id antigo para evitar conflitos, o Mongo gera novos
+            });
+          }
+      }
 
-            for (let t of req.body) {
-                const tool = {
-                    position: project["tools"].length,
-                    ...t,
-                };
+      // 2. Substituir a lista de ferramentas
+      project.tools = newTools;
 
-                project["tools"].push(tool);
-            }
-
-            Project.update(req.params.user, req.params.project, project)
-                .then((project) => res.status(204).jsonp(project))
-                .catch((_) =>
-                    res.status(503).jsonp(`Error updating project information`)
-                );
-        })
-        .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
+      // 3. USAR .save() PARA GARANTIR PERSISTÊNCIA
+      // O método Project.update anterior falhava muitas vezes com arrays
+      try {
+        await project.save();
+        res.status(204).jsonp();
+      } catch (err) {
+        console.error("Erro ao salvar reordenação:", err);
+        res.status(503).jsonp("Error updating project information");
+      }
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(501).jsonp("Error acquiring user's project");
+    });
 });
 
 // Process a specific project
@@ -832,16 +848,23 @@ router.post("/:user/:project/process", (req, res, next) => {
 
 // Update a specific project
 router.put("/:user/:project", (req, res, next) => {
-    Project.getOne(req.params.user, req.params.project)
-        .then((project) => {
-            project.name = req.body.name || project.name;
-            Project.update(req.params.user, req.params.project, project)
-                .then((_) => res.sendStatus(204))
-                .catch((_) =>
-                    res.status(503).jsonp(`Error updating project information`)
-                );
-        })
-        .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
+  Project.getOne(req.params.user, req.params.project)
+    .then((project) => {
+      // Atualiza o nome se existir
+      project.name = req.body.name || project.name;
+      
+      // ADICIONA ISTO: Atualiza as tools se elas vierem no pedido
+      if (req.body.tools) {
+        project.tools = req.body.tools;
+      }
+
+      Project.update(req.params.user, req.params.project, project)
+        .then((_) => res.sendStatus(204))
+        .catch((_) =>
+          res.status(503).jsonp(`Error updating project information`)
+        );
+    })
+    .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
 // Update a tool from a specific project

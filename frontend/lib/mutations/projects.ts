@@ -143,7 +143,8 @@ export const useDownloadProjectResults = () => {
     mutationFn: downloadProjectResults,
     onSuccess: async (project) => {
       const blobUrl = await createBlobUrlFromFile(project.file);
-      downloadBlob(project.name + "_edited", blobUrl);
+      // ALTERADO: Usa o nome do ficheiro vindo da API (que já traz a extensão .json ou .zip)
+      downloadBlob(project.file.name, blobUrl);
     },
   });
 };

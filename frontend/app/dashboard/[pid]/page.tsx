@@ -6,11 +6,19 @@ import { ViewToggle } from "@/components/project-page/view-toggle";
 import { AddImagesDialog } from "@/components/project-page/add-images-dialog";
 import { Button } from "@/components/ui/button";
 import { Toolbar } from "@/components/toolbar/toolbar";
+import { ToolsPipeline } from "@/components/project-page/tools-pipeline";
 import {
   useGetProject,
   useGetProjectResults,
   useGetSocket,
 } from "@/lib/queries/projects";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react"; 
 import Loading from "@/components/loading";
 import { ProjectProvider } from "@/providers/project-provider";
 import { use, useEffect, useLayoutEffect, useState } from "react";
@@ -20,9 +28,10 @@ import {
   useDownloadProject,
   useDownloadProjectResults,
   useProcessProject,
+  useCancelProject,
 } from "@/lib/mutations/projects";
 import { useToast } from "@/hooks/use-toast";
-import { ProjectImage } from "@/lib/projects";
+import { ProjectImage, ProjectToolResponse } from "@/lib/projects";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { Transition } from "@headlessui/react";
@@ -31,7 +40,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ModeToggle } from "@/components/project-page/mode-toggle";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useCancelProject } from "@/lib/mutations/projects"; 
+import { api } from "@/lib/axios";
+
 export default function Project({
   params,
 }: {
@@ -58,21 +68,48 @@ export default function Project({
     pid, 
     session.token
   );
+  
   const [currentImage, setCurrentImage] = useState<ProjectImage | null>(null);
   const [processing, setProcessing] = useState<boolean>(false);
   const [processingProgress, setProcessingProgress] = useState<number>(0);
   const [processingSteps, setProcessingSteps] = useState<number>(1);
   const [waitingForPreview, setWaitingForPreview] = useState<string>("");
   const [showCancelButton, setShowCancelButton] = useState(false);
+  
   const totalProcessingSteps =
     (project.data?.tools.length ?? 0) * (project.data?.imgs.length ?? 0);
+  
   const projectResults = useGetProjectResults(
     session.user._id,
     pid,
     session.token,
   );
   const qc = useQueryClient();
-  
+
+const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
+    try {
+        // Enviar a lista para a rota de reorder corrigida
+        await api.post(`/projects/${session.user._id}/${pid}/reorder`, 
+            newTools,
+            {
+                headers: { Authorization: `Bearer ${session.token}` }
+            }
+        );
+
+        // Forçar atualização imediata dos dados vindos do servidor
+        await qc.invalidateQueries({ queryKey: ["project", pid] });
+        // Opcional: Refetch explícito para garantir que temos os novos IDs
+        await project.refetch(); 
+        
+    } catch (error) {
+        console.error("Falha ao reordenar ferramentas", error);
+        toast({
+            title: "Erro ao salvar ordem",
+            description: "Não foi possível atualizar o projeto.",
+            variant: "destructive"
+        });
+    }
+  };
 
   useLayoutEffect(() => {
     if (
@@ -86,12 +123,10 @@ export default function Project({
   useEffect(() => {
     function onProcessUpdate() {
       setProcessingSteps((prev) => prev + 1);
-
       const progress = Math.min(
         Math.round((processingSteps * 100) / totalProcessingSteps),
         100,
       );
-
       setProcessingProgress(progress);
       if (processingSteps >= totalProcessingSteps) {
         setTimeout(() => {
@@ -107,76 +142,51 @@ export default function Project({
     }
 
     let active = true;
-
     if (active && socket.data) {
       socket.data.on("process-update", () => {
         if (active) onProcessUpdate();
       });
     }
-
     return () => {
       active = false;
       if (socket.data) socket.data.off("process-update", onProcessUpdate);
     };
   }, [
-    pid,
-    processingSteps,
-    qc,
-    router,
-    session.token,
-    session.user._id,
-    socket.data,
-    totalProcessingSteps,
-    sidebar,
-    isMobile,
-    projectResults,
+    pid, processingSteps, qc, router, session.token, session.user._id,
+    socket.data, totalProcessingSteps, sidebar, isMobile, projectResults,
   ]);
   
   useEffect(() => {
     let timer: NodeJS.Timeout;
-  
     if (processing) {
-      
       setShowCancelButton(false);
-      
-
       timer = setTimeout(() => {
         setShowCancelButton(true);
       }, 10000);
     } else {
-
       setShowCancelButton(false);
     }
-  
     return () => clearTimeout(timer);
   }, [processing]);
-  
 
   const handleCancelOptimistic = () => {
-    
     cancelProjectMutation.mutate();
-    
-   
     setProcessing(false);
     setProcessingProgress(0);
     setProcessingSteps(1);
     setShowCancelButton(false);
     if (!isMobile) sidebar.setOpen(true); 
-    
-
     router.push(`?mode=edit&view=${view}`);
     toast({
       title: "Processamento cancelado",
       description: "A operação foi interrompida.",
     });
   };
+
   if (project.isError)
     return (
       <div className="flex size-full justify-center items-center h-screen p-8">
-        <Alert
-          variant="destructive"
-          className="w-fit max-w-[40rem] text-wrap truncate"
-        >
+        <Alert variant="destructive" className="w-fit max-w-[40rem]">
           <OctagonAlert className="size-4" />
           <AlertTitle>{project.error.name}</AlertTitle>
           <AlertDescription>{project.error.message}</AlertDescription>
@@ -184,12 +194,7 @@ export default function Project({
       </div>
     );
 
-  if (
-    project.isLoading ||
-    !project.data ||
-    projectResults.isLoading ||
-    !projectResults.data
-  )
+  if (project.isLoading || !project.data || projectResults.isLoading || !projectResults.data)
     return (
       <div className="flex justify-center items-center h-screen">
         <Loading />
@@ -201,14 +206,13 @@ export default function Project({
       project={project.data}
       currentImage={currentImage}
       preview={{ waiting: waitingForPreview, setWaiting: setWaitingForPreview }}
+      onUpdateTools={handleUpdateTools}
     >
       <div className="flex flex-col h-screen relative">
         {/* Header */}
         <div className="flex flex-col xl:flex-row justify-center items-start xl:items-center xl:justify-between border-b border-sidebar-border py-2 px-2 md:px-3 xl:px-4 h-fit gap-2">
-          <div className="flex items-center justify-between w-full xl:w-auto gap-2">
-            <h1 className="text-lg font-semibold truncate">
-              {project.data.name}
-            </h1>
+           <div className="flex items-center justify-between w-full xl:w-auto gap-2">
+            <h1 className="text-lg font-semibold truncate">{project.data.name}</h1>
             <div className="flex items-center gap-2 xl:hidden">
               <ViewToggle />
               <ModeToggle />
@@ -220,28 +224,14 @@ export default function Project({
               {mode !== "results" && (
                 <>
                   <Button
-                    disabled={
-                      project.data.tools.length <= 0 || waitingForPreview !== ""
-                    }
+                    disabled={project.data.tools.length <= 0 || waitingForPreview !== ""}
                     className="inline-flex"
                     onClick={() => {
                       processProject.mutate(
+                        { uid: session.user._id, pid: project.data._id, token: session.token },
                         {
-                          uid: session.user._id,
-                          pid: project.data._id,
-                          token: session.token,
-                        },
-                        {
-                          onSuccess: () => {
-                            setProcessing(true);
-                            sidebar.setOpen(false);
-                          },
-                          onError: (error) =>
-                            toast({
-                              title: "Ups! An error occurred.",
-                              description: error.message,
-                              variant: "destructive",
-                            }),
+                          onSuccess: () => { setProcessing(true); sidebar.setOpen(false); },
+                          onError: (error) => toast({ title: "Error", description: error.message, variant: "destructive" }),
                         },
                       );
                     }}
@@ -251,45 +241,59 @@ export default function Project({
                   <AddImagesDialog />
                 </>
               )}
-              <ShareLink 
-                  projectId={project.data._id} 
-                  projectName={project.data.name}
-                  currentUserId={session.user._id} 
-              />
-              <Button
-                variant="outline"
-                className="px-3"
-                title="Download project"
-                onClick={() => {
-                  (mode === "edit"
-                    ? downloadProjectImages
-                    : downloadProjectResults
-                  ).mutate(
-                    {
-                      uid: session.user._id,
-                      pid: project.data._id,
-                      token: session.token,
-                      projectName: project.data.name,
-                    },
-                    {
-                      onSuccess: () => {
-                        toast({
-                          title: `Project ${project.data.name} downloaded.`,
-                        });
-                      },
-                    },
-                  );
-                }}
-              >
-                {(mode === "edit"
-                  ? downloadProjectImages
-                  : downloadProjectResults
-                ).isPending ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : (
-                  <Download />
-                )}
-              </Button>
+              <ShareLink projectId={project.data._id} projectName={project.data.name} />
+<DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="px-3 gap-2" title="Download Options">
+                    {(mode === "edit" ? downloadProjectImages : downloadProjectResults).isPending ? (
+                      <LoaderCircle className="animate-spin size-4" />
+                    ) : (
+                      <Download className="size-4" />
+                    )}
+                    <span className="hidden xl:inline">Download</span>
+                    <ChevronDown className="size-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {/* Opção ZIP (Padrão) */}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      (mode === "edit" ? downloadProjectImages : downloadProjectResults).mutate(
+                        { 
+                          uid: session.user._id, 
+                          pid: project.data._id, 
+                          token: session.token, 
+                          projectName: project.data.name,
+                          format: 'zip' 
+                        } as any, // Cast necessário se a tipagem estrita reclamar no modo 'edit'
+                        { onSuccess: () => { toast({ title: "Project downloaded (ZIP)." }); } }
+                      );
+                    }}
+                  >
+                    Download as ZIP
+                  </DropdownMenuItem>
+
+                  {/* Opção JSON (Apenas disponível no modo Results) */}
+                  {mode === "results" && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        downloadProjectResults.mutate(
+                          { 
+                            uid: session.user._id, 
+                            pid: project.data._id, 
+                            token: session.token, 
+                            projectName: project.data.name,
+                            format: 'json' 
+                          },
+                          { onSuccess: () => { toast({ title: "Project metadata downloaded (JSON)." }); } }
+                        );
+                      }}
+                    >
+                      Download as JSON
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <div className="hidden xl:flex items-center gap-2">
                 <ViewToggle />
                 <ModeToggle />
@@ -297,24 +301,26 @@ export default function Project({
             </div>
           </div>
         </div>
-        {/* Main Content */}
-        <div className="h-full overflow-x-hidden flex">
-          {mode !== "results" && <Toolbar />}
-          <ProjectImageList
-            setCurrentImageId={setCurrentImage}
-            results={projectResults.data}
-          />
+        
+        {/* Main Content Area */}
+        <div className="h-full overflow-hidden flex flex-row">
+          
+          {/* Esquerda: Toolbar + Imagem (MANTIDO O FLEX-ROW AQUI) */}
+          <div className="flex-1 flex flex-row overflow-hidden relative">
+             {mode !== "results" && <Toolbar />}
+             <ProjectImageList setCurrentImageId={setCurrentImage} results={projectResults.data} />
+          </div>
+
+          {/* Direita: Pipeline (Nova Coluna) */}
+          {mode !== "results" && (
+              <div className="w-80 border-l bg-card/30 p-4 overflow-y-auto hidden lg:block z-10">
+                  <ToolsPipeline />
+              </div>
+          )}
         </div>
       </div>
-      <Transition
-        show={processing}
-        enter="transition-opacity ease-in duration-300"
-        enterFrom="opacity-0"
-        enterTo="opacity-100"
-        leave="transition-opacity ease-out duration-300"
-        leaveFrom="opacity-100"
-        leaveTo="opacity-0"
-      >
+      
+      <Transition show={processing} enter="transition-opacity duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="transition-opacity duration-300" leaveFrom="opacity-100" leaveTo="opacity-0">
        <div className="absolute top-0 left-0 h-screen w-screen bg-black/70 z-50 flex justify-center items-center">
           <Card className="p-6 flex flex-col justify-center items-center gap-6 min-w-[300px]">
             <div className="flex flex-col items-center gap-2">
@@ -322,20 +328,11 @@ export default function Project({
                 <h1>Processing</h1>
                 <LoaderCircle className="size-[1em] animate-spin" />
               </div>
-              <p className="text-sm text-muted-foreground">
-                {Math.round(processingProgress)}% completo
-              </p>
+              <p className="text-sm text-muted-foreground">{Math.round(processingProgress)}% completo</p>
             </div>
-            
             <Progress value={processingProgress} className="w-96" />
-            
-            
             {showCancelButton && (
-              <Button 
-                variant="destructive" 
-                onClick={handleCancelOptimistic} // Usa a função que criaste lá em cima
-                className="animate-in fade-in zoom-in duration-300 gap-2"
-              >
+              <Button variant="destructive" onClick={handleCancelOptimistic} className="gap-2">
                 <X className="size-4" /> Cancelar
               </Button>
             )}

@@ -429,19 +429,23 @@ export const clearProjectTools = async ({
   }
 };
 
+// --- INÍCIO DA VERSÃO CORRIGIDA PARA T-09 ---
 export const downloadProjectResults = async ({
   uid,
   pid,
   projectName,
   token,
+  format = "zip", // Novo parâmetro
 }: {
   uid: string;
   pid: string;
   projectName: string;
   token: string;
+  format?: "zip" | "json";
 }) => {
+  // Passa o formato para a API
   const response = await api.get<ArrayBuffer>(
-    `/projects/${uid}/${pid}/process`,
+    `/projects/${uid}/${pid}/process?format=${format}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -453,9 +457,13 @@ export const downloadProjectResults = async ({
   if (response.status !== 200 || !response.data)
     throw new Error("Failed to process project");
 
-  const blob = new Blob([response.data], { type: "application/zip" });
-  const file = new File([blob], projectName + "_edited.zip", {
-    type: "application/zip",
+  // Decide o MIME type e extensão
+  const mimeType = format === "json" ? "application/json" : "application/zip";
+  const extension = format === "json" ? "json" : "zip";
+
+  const blob = new Blob([response.data], { type: mimeType });
+  const file = new File([blob], `${projectName}_results.${extension}`, {
+    type: mimeType,
   });
 
   return {
@@ -463,6 +471,7 @@ export const downloadProjectResults = async ({
     file,
   };
 };
+// --- FIM DA CORREÇÃO ---
 
 export const fetchProjectResults = async (
   uid: string,

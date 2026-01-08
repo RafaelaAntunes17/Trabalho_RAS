@@ -1,10 +1,14 @@
 "use client";
 
-import { ProjectImage, SingleProject } from "@/lib/projects";
-import { createContext, useContext } from "react";
+import { ProjectImage, SingleProject, ProjectToolResponse } from "@/lib/projects";
+import { createContext, useContext, useEffect, useState } from "react";
+import { arrayMove } from "@dnd-kit/sortable";
 
 interface ProjectContextData {
   project: SingleProject;
+  tools: ProjectToolResponse[]; // Mudámos para ProjectToolResponse para garantir _id
+  setTools: (tools: ProjectToolResponse[]) => void;
+  reorderTools: (activeId: string, overId: string) => void;
   currentImage: ProjectImage | null;
   preview: {
     waiting: string;
@@ -19,6 +23,7 @@ export function ProjectProvider({
   project,
   currentImage,
   preview,
+  onUpdateTools,
 }: {
   children: React.ReactNode;
   project: SingleProject;
@@ -27,9 +32,38 @@ export function ProjectProvider({
     waiting: string;
     setWaiting: (waiting: string) => void;
   };
+  onUpdateTools?: (newTools: ProjectToolResponse[]) => void;
 }) {
+  const [tools, setTools] = useState<ProjectToolResponse[]>(project.tools || []);
+
+  useEffect(() => {
+    if (project.tools) {
+      setTools(project.tools);
+    }
+  }, [project.tools]);
+
+  const reorderTools = (activeId: string, overId: string) => {
+    setTools((prev) => {
+      // CORREÇÃO: Usar t._id em vez de t.id
+      const oldIndex = prev.findIndex((t) => t._id === activeId);
+      const newIndex = prev.findIndex((t) => t._id === overId);
+
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
+        return prev;
+      }
+
+      const newTools = arrayMove(prev, oldIndex, newIndex);
+      
+      if (onUpdateTools) {
+        onUpdateTools(newTools);
+      }
+      
+      return newTools;
+    });
+  };
+
   return (
-    <ProjectContext.Provider value={{ project, currentImage, preview }}>
+    <ProjectContext.Provider value={{ project, tools, setTools, reorderTools, currentImage, preview }}>
       {children}
     </ProjectContext.Provider>
   );
@@ -41,6 +75,14 @@ export function useProjectInfo() {
     throw new Error("useProjectInfo() must be used within a ProjectProvider");
   }
   return context.project;
+}
+
+export function useProjectTools() {
+  const context = useContext(ProjectContext);
+  if (context === undefined) {
+    throw new Error("useProjectTools() must be used within a ProjectProvider");
+  }
+  return { tools: context.tools, reorderTools: context.reorderTools };
 }
 
 export function useCurrentImage() {
