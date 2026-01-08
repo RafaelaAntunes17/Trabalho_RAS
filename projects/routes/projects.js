@@ -780,15 +780,7 @@ router.post("/:user/:project/process", (req, res, next) => {
             if (!project) return res.status(404).jsonp("Projeto não encontrado");
 
             // 1. Limpar resultados anteriores na pasta do DONO
-            try {
-                const prev_results = await Result.getAll(project.user_id, project._id);
-                for (let r of prev_results) {
-                    await delete_image(project.user_id, project._id, "out", r.img_key);
-                    await Result.delete(project.user_id, project._id, r.img_id);
-                }
-            } catch (_) {
-                return res.status(400).jsonp("Erro ao limpar resultados anteriores");
-            }
+            
 
             if (project.tools.length == 0) return res.status(400).jsonp("Nenhuma ferramenta selecionada");
 
