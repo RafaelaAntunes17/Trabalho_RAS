@@ -17,9 +17,13 @@ const { v4: uuidv4 } = require('uuid');
 const {
     send_msg_tool,
     send_msg_client,
+    send_msg_client_broadcast,
     send_msg_client_error,
+    send_msg_client_error_broadcast,
     send_msg_client_preview,
+    send_msg_client_preview_broadcast,
     send_msg_client_preview_error,
+    send_msg_client_preview_error_broadcast,
     read_msg,
 } = require("../utils/project_msg");
 
@@ -63,6 +67,22 @@ const advanced_tools = [
     "people_ai",
 ];
 
+// Helper function to get all users who should receive project updates
+// Returns array of user IDs: owner + all collaborators
+function getProjectNotificationUsers(project) {
+    const users = [project.user_id];
+    
+    if (project.collaborators && Array.isArray(project.collaborators)) {
+        for (const collab of project.collaborators) {
+            if (collab.userId && !users.includes(collab.userId)) {
+                users.push(collab.userId);
+            }
+        }
+    }
+    
+    return users;
+}
+
 function advanced_tool_num(project) {
     const tools = project.tools;
     let ans = 0;
@@ -102,15 +122,18 @@ function process_msg() {
 
             if (msg_content.status === "error") {
                 console.log(JSON.stringify(msg_content));
+                const project = await Project.getOne(process.user_id, process.project_id);
+                const notificationUsers = getProjectNotificationUsers(project);
+                
                 if (/preview/.test(msg_id)) {
-                    send_msg_client_preview_error(`update-client-preview-${uuidv4()}`, timestamp, process.user_id, msg_content.error.code, msg_content.error.msg)
+                    send_msg_client_preview_error_broadcast(`update-client-preview-${uuidv4()}`, timestamp, notificationUsers, msg_content.error.code, msg_content.error.msg)
                 }
 
                 else {
-                    send_msg_client_error(
+                    send_msg_client_error_broadcast(
                         user_msg_id,
                         timestamp,
-                        process.user_id,
+                        notificationUsers,
                         msg_content.error.code,
                         msg_content.error.msg
                     );
@@ -182,10 +205,11 @@ function process_msg() {
                         else urls.textResults.push(url);
                     }
 
-                    send_msg_client_preview(
+                    const notificationUsers = getProjectNotificationUsers(project);
+                    send_msg_client_preview_broadcast(
                         `update-client-preview-${uuidv4()}`,
                         timestamp,
-                        process.user_id,
+                        notificationUsers,
                         JSON.stringify(urls)
                     );
 
@@ -194,12 +218,14 @@ function process_msg() {
 
             if(/preview/.test(msg_id) && next_pos >= project.tools.length) return;
 
-            if (!/preview/.test(msg_id))
-                send_msg_client(
+            if (!/preview/.test(msg_id)) {
+                const notificationUsers = getProjectNotificationUsers(project);
+                send_msg_client_broadcast(
                     user_msg_id,
                     timestamp,
-                    process.user_id
+                    notificationUsers
                 );
+            }
 
             if (!/preview/.test(msg_id) && (type == "text" || next_pos >= project.tools.length)) {
                 const file_path = path.join(__dirname, `/../${output_file_uri}`);

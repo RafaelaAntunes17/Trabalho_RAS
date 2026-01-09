@@ -1,7 +1,7 @@
 "use client";
 import { ShareLink } from "@/components/project-page/share-link";
 import { ManageCollaborators } from "@/components/project-page/manage-collaborators";
-import { Download, LoaderCircle, OctagonAlert, Play, X } from "lucide-react";
+import { Download, LoaderCircle, OctagonAlert, Play, RefreshCw, X } from "lucide-react";
 import { ProjectImageList } from "@/components/project-page/project-image-list";
 import { ViewToggle } from "@/components/project-page/view-toggle";
 import { AddImagesDialog } from "@/components/project-page/add-images-dialog";
@@ -76,6 +76,7 @@ export default function Project({
   const [processingSteps, setProcessingSteps] = useState<number>(1);
   const [waitingForPreview, setWaitingForPreview] = useState<string>("");
   const [showCancelButton, setShowCancelButton] = useState(false);
+  const [hasRemoteResults, setHasRemoteResults] = useState(false);
   
   const totalProcessingSteps =
     (project.data?.tools.length ?? 0) * (project.data?.imgs.length ?? 0);
@@ -123,23 +124,35 @@ const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
 
   useEffect(() => {
     function onProcessUpdate() {
-      setProcessingSteps((prev) => prev + 1);
-      const progress = Math.min(
-        Math.round((processingSteps * 100) / totalProcessingSteps),
-        100,
-      );
-      setProcessingProgress(progress);
-      if (processingSteps >= totalProcessingSteps) {
-        setTimeout(() => {
-          projectResults.refetch().then(() => {
-            setProcessing(false);
-            if (!isMobile) sidebar.setOpen(true);
-            setProcessingProgress(0);
-            setProcessingSteps(1);
-            router.push("?mode=results&view=grid");
-          });
-        }, 2000);
+      // If this user was not the one running the process, just flag new results.
+      if (!processing) {
+        setHasRemoteResults(true);
+        return;
       }
+
+      setProcessingSteps((prev) => {
+        const next = prev + 1;
+        const progress = Math.min(
+          Math.round((next * 100) / totalProcessingSteps),
+          100,
+        );
+        setProcessingProgress(progress);
+
+        if (next >= totalProcessingSteps) {
+          setTimeout(() => {
+            projectResults.refetch().then(() => {
+              setProcessing(false);
+              if (!isMobile) sidebar.setOpen(true);
+              setProcessingProgress(0);
+              setProcessingSteps(1);
+              setHasRemoteResults(false);
+              router.push("?mode=results&view=grid");
+            });
+          }, 2000);
+        }
+
+        return next;
+      });
     }
 
     let active = true;
@@ -153,7 +166,7 @@ const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
       if (socket.data) socket.data.off("process-update", onProcessUpdate);
     };
   }, [
-    pid, processingSteps, qc, router, session.token, session.user._id,
+    pid, processing, qc, router, session.token, session.user._id,
     socket.data, totalProcessingSteps, sidebar, isMobile, projectResults,
   ]);
   
@@ -182,6 +195,19 @@ const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
       title: "Processamento cancelado",
       description: "A operação foi interrompida.",
     });
+  };
+
+  const handleManualResultsRefresh = async () => {
+    try {
+      await projectResults.refetch();
+      setHasRemoteResults(false);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar resultados",
+        description: error?.message ?? "Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (project.isError)
@@ -244,6 +270,23 @@ const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
               )}
               <ShareLink projectId={project.data._id} projectName={project.data.name} currentUserId={session.user._id} />
               <ManageCollaborators projectId={project.data._id} currentUserId={session.user._id} token={session.token} />
+              <Button
+                variant={hasRemoteResults ? "default" : "outline"}
+                className="px-3 gap-2 relative"
+                onClick={handleManualResultsRefresh}
+                disabled={projectResults.isFetching}
+                title="Recarregar resultados"
+              >
+                {projectResults.isFetching ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                <span className="hidden xl:inline">Atualizar</span>
+                {hasRemoteResults && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-amber-500" />
+                )}
+              </Button>
 <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="px-3 gap-2" title="Download Options">
