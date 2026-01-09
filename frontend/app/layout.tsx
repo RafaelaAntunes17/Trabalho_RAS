@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import ReactQueryProvider from "@/components/query-client";
 import { Metadata } from "next";
 import { SessionProvider } from "@/providers/session-provider";
+import { AccessRevokedListener } from "@/components/access-revoked-listener";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -34,6 +35,7 @@ export default function RootLayout({
       >
         <ReactQueryProvider>
           <SessionProvider>
+            <AccessRevokedListener />
             {children}
             <Toaster />
           </SessionProvider>

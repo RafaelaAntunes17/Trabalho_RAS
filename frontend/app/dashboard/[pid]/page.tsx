@@ -1,5 +1,6 @@
 "use client";
 import { ShareLink } from "@/components/project-page/share-link";
+import { ManageCollaborators } from "@/components/project-page/manage-collaborators";
 import { Download, LoaderCircle, OctagonAlert, Play, X } from "lucide-react";
 import { ProjectImageList } from "@/components/project-page/project-image-list";
 import { ViewToggle } from "@/components/project-page/view-toggle";
@@ -242,6 +243,7 @@ const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
                 </>
               )}
               <ShareLink projectId={project.data._id} projectName={project.data.name} currentUserId={session.user._id} />
+              <ManageCollaborators projectId={project.data._id} currentUserId={session.user._id} token={session.token} />
 <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="px-3 gap-2" title="Download Options">

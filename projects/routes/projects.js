@@ -1048,10 +1048,71 @@ router.post("/:id/share", async(req, res)=>{
             return res.status(400).json({error: "Usuário não autenticado."});
         }
         const permission = req.body.permission || 'view';
-        const token = await Project.generateShareToken(userId, req.params.id, permission);
+        const email = req.body.email || '';
+        const token = await Project.generateShareToken(userId, req.params.id, permission, email);
         res.json({token});
     }catch (error){
         res.status(403).json({error: error.message});
+    }
+});
+
+router.get("/:user/:project/shares", checkViewPermission, async(req, res) => {
+    try {
+        const userId = req.headers['x-user-id'];
+        const projectId = req.params.project;
+        
+        // Verificar se é o owner
+        const project = await Project.getOne(userId, projectId);
+        if (!project || project.user_id.toString() !== userId.toString()) {
+            return res.status(403).json({ error: "Apenas o owner pode ver os shares" });
+        }
+        
+        const ShareController = require("../controllers/share");
+        const shares = await ShareController.getProjectShares(projectId);
+        res.json(shares);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete("/:user/:project/share/:shareId", checkOwnerOnly, async(req, res) => {
+    try {
+        const ShareController = require("../controllers/share");
+        const Share = require("../models/share");
+        const ProjectModel = require("../models/project");
+        
+        // Obter dados do share antes de revogar
+        const share = await Share.findById(req.params.shareId);
+        if (!share) {
+            return res.status(404).json({ error: "Share não encontrado" });
+        }
+        
+        // Revogar o share
+        await ShareController.revokeShare(req.params.shareId);
+        
+        // Remover o colaborador do projeto
+        const projectData = await Project.getOne(req.params.user, req.params.project);
+        if (projectData && share.userId) {
+            await ProjectModel.findByIdAndUpdate(
+                req.params.project,
+                { $pull: { collaborators: { userId: share.userId } } },
+                { new: true }
+            );
+        }
+        
+        // Enviar notificação via WebSocket se houver userId
+        if (share.userId) {
+            send_msg_client(`access_revoked_${share.userId}`, {
+                type: 'access_revoked',
+                projectId: req.params.project,
+                projectName: projectData?.name || 'Unknown Project',
+                message: 'O seu acesso a este projeto foi revogado pelo owner.'
+            });
+        }
+        
+        res.sendStatus(204);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 

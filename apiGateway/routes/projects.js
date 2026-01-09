@@ -468,7 +468,48 @@ router.post("/:user/join/:token", auth.checkToken, function (req, res, next) {
             headers: {"x-user-id": req.params.user}
         })
         .then((resp) => res.status(201).jsonp(resp.data))
-        .catch((err) => res.status(500).jsonp("Error joining shared project"));
-})
+        .catch((err) => {
+            const status = err.response?.status || 500;
+            const message = err.response?.data?.error || "Error joining shared project";
+            res.status(status).jsonp({ error: message });
+        });
+});
+
+/**
+ * Get all active shares for a project
+ * @returns Array of shares with email, permission, createdAt
+ */
+router.get("/:user/:project/shares", auth.checkToken, function (req, res, next) {
+    axios
+        .get(projectsURL + `${req.params.user}/${req.params.project}/shares`, {
+            httpsAgent: httpsAgent,
+            headers: {"x-user-id": req.params.user}
+        })
+        .then((resp) => res.status(200).jsonp(resp.data))
+        .catch((err) => {
+            const status = err.response?.status || 500;
+            const message = err.response?.data?.error || "Error fetching project shares";
+            res.status(status).jsonp({ error: message });
+        });
+});
+
+/**
+ * Revoke access to a shared project
+ * @params shareId - The ID of the share to revoke
+ * @returns Empty
+ */
+router.delete("/:user/:project/share/:shareId", auth.checkToken, function (req, res, next) {
+    axios
+        .delete(projectsURL + `${req.params.user}/${req.params.project}/share/${req.params.shareId}`, {
+            httpsAgent: httpsAgent,
+            headers: {"x-user-id": req.params.user}
+        })
+        .then((_) => res.sendStatus(204))
+        .catch((err) => {
+            const status = err.response?.status || 500;
+            const message = err.response?.data?.error || "Error revoking share";
+            res.status(status).jsonp({ error: message });
+        });
+});
 
 module.exports = router;
