@@ -666,6 +666,8 @@ router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next
 
             // FIX: The path on disk also belongs to the owner's folder
             const new_img_uri = `./images/users/${ownerId}/projects/${project._id}/preview/${img_name}`;
+            const previewDir = path.dirname(new_img_uri);
+            fs_extra.ensureDirSync(previewDir);
 
             const tool = project.tools.filter((t) => t.position == 0)[0];
 
