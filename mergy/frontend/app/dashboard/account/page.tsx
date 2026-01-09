@@ -19,7 +19,7 @@ import {
   useUpdateUserProfile,
   useUpdateUserPassword,
   useLogin,
-  useDeleteUser,
+  useDeleteUser, // <--- Importação nova
 } from "@/lib/mutations/session";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"; // <--- Importações novas
 
 export default function Account() {
   const session = useSession();
@@ -53,7 +53,7 @@ export default function Account() {
   const updateUser = useUpdateUserProfile();
   const updatePassword = useUpdateUserPassword();
   const login = useLogin();
-  const deleteAccount = useDeleteUser();
+  const deleteAccount = useDeleteUser(); // <--- Hook novo
   const { toast } = useToast();
 
   // Set default values when the session is loaded or updated
@@ -293,6 +293,7 @@ export default function Account() {
           </CardContent>
         </Card>
 
+        {/* --- DANGER ZONE ADICIONADA AQUI --- */}
         <Card className="border-red-500/50">
           <CardHeader>
             <CardTitle className="text-red-600">Danger Zone</CardTitle>
@@ -318,17 +319,19 @@ export default function Account() {
                   <AlertDialogAction
                       className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
                       onClick={(e) => {
+                        // 1. Executar a mutação
                         deleteAccount.mutate(
                           {
                             userId: session.user._id,
                             token: session.token,
                           },
                           {
+                            // 2. Se falhar, mostrar erro e não sair da página
                             onError: (error) => {
-                              console.error("Error deleting account:", error);
+                              console.error("Erro ao apagar conta:", error);
                               toast({
-                                title: "Error deleting account",
-                                description: error.message || "Please try again later.",
+                                title: "Erro ao apagar conta",
+                                description: error.message || "Tente novamente mais tarde.",
                                 variant: "destructive",
                               });
                             }

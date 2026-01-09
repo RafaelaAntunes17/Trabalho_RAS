@@ -6,7 +6,6 @@ const multer = require("multer");
 const FormData = require("form-data");
 
 const fs = require("fs");
-const fs_extra = require("fs-extra");
 const path = require("path");
 const mime = require("mime-types");
 
@@ -17,13 +16,9 @@ const { v4: uuidv4 } = require('uuid');
 const {
     send_msg_tool,
     send_msg_client,
-    send_msg_client_broadcast,
     send_msg_client_error,
-    send_msg_client_error_broadcast,
     send_msg_client_preview,
-    send_msg_client_preview_broadcast,
     send_msg_client_preview_error,
-    send_msg_client_preview_error_broadcast,
     read_msg,
 } = require("../utils/project_msg");
 
@@ -39,8 +34,6 @@ const {
     delete_image,
 } = require("../utils/minio");
 
-const { checkEditPermission, checkViewPermission, checkOwnerOnly } = require("../utils/permissionChecker");
-
 const storage = multer.memoryStorage();
 var upload = multer({ storage: storage });
 
@@ -50,7 +43,7 @@ const cert = fs.readFileSync(__dirname + "/../certs/selfsigned.crt");
 const https = require("https");
 const project = require("../models/project");
 const httpsAgent = new https.Agent({
-    rejectUnauthorized: false, // (NOTE: this will disable client verification)
+    rejectUnauthorized: false, 
     cert: cert,
     key: key,
 });
@@ -67,22 +60,6 @@ const advanced_tools = [
     "people_ai",
 ];
 
-// Helper function to get all users who should receive project updates
-// Returns array of user IDs: owner + all collaborators
-function getProjectNotificationUsers(project) {
-    const users = [project.user_id];
-    
-    if (project.collaborators && Array.isArray(project.collaborators)) {
-        for (const collab of project.collaborators) {
-            if (collab.userId && !users.includes(collab.userId)) {
-                users.push(collab.userId);
-            }
-        }
-    }
-    
-    return users;
-}
-
 function advanced_tool_num(project) {
     const tools = project.tools;
     let ans = 0;
@@ -91,13 +68,13 @@ function advanced_tool_num(project) {
         if (advanced_tools.includes(t.procedure)) ans++;
     }
 
-    // Multiply answer by number of images to reduce chance of a single project with infinite images
+
     ans *= project.imgs.length;
 
     return ans;
 }
 
-// TODO process message according to type of output
+
 function process_msg() {
     read_msg(async (msg) => {
         try {
@@ -114,7 +91,6 @@ function process_msg() {
             const prev_process_input_img = process.og_img_uri;
             const prev_process_output_img = process.new_img_uri;
 
-            // Get current process, delete it and create it's sucessor if possible
             const og_img_uri = process.og_img_uri;
             const img_id = process.img_id;
 
@@ -122,18 +98,15 @@ function process_msg() {
 
             if (msg_content.status === "error") {
                 console.log(JSON.stringify(msg_content));
-                const project = await Project.getOne(process.user_id, process.project_id);
-                const notificationUsers = getProjectNotificationUsers(project);
-                
                 if (/preview/.test(msg_id)) {
-                    send_msg_client_preview_error_broadcast(`update-client-preview-${uuidv4()}`, timestamp, notificationUsers, msg_content.error.code, msg_content.error.msg)
+                    send_msg_client_preview_error(`update-client-preview-${uuidv4()}`, timestamp, process.user_id, msg_content.error.code, msg_content.error.msg)
                 }
 
                 else {
-                    send_msg_client_error_broadcast(
+                    send_msg_client_error(
                         user_msg_id,
                         timestamp,
-                        notificationUsers,
+                        process.user_id,
                         msg_content.error.code,
                         msg_content.error.msg
                     );
@@ -150,7 +123,7 @@ function process_msg() {
             if (/preview/.test(msg_id) && (type == "text" || next_pos >= project.tools.length)) {
                 const file_path = path.join(__dirname, `/../${output_file_uri}`);
                 const file_name = path.basename(file_path);
-                const fileStream = fs.createReadStream(file_path); // Use createReadStream for efficiency
+                const fileStream = fs.createReadStream(file_path); 
 
                 const data = new FormData();
                 await data.append(
@@ -205,11 +178,10 @@ function process_msg() {
                         else urls.textResults.push(url);
                     }
 
-                    const notificationUsers = getProjectNotificationUsers(project);
-                    send_msg_client_preview_broadcast(
+                    send_msg_client_preview(
                         `update-client-preview-${uuidv4()}`,
                         timestamp,
-                        notificationUsers,
+                        process.user_id,
                         JSON.stringify(urls)
                     );
 
@@ -218,19 +190,17 @@ function process_msg() {
 
             if(/preview/.test(msg_id) && next_pos >= project.tools.length) return;
 
-            if (!/preview/.test(msg_id)) {
-                const notificationUsers = getProjectNotificationUsers(project);
-                send_msg_client_broadcast(
+            if (!/preview/.test(msg_id))
+                send_msg_client(
                     user_msg_id,
                     timestamp,
-                    notificationUsers
+                    process.user_id
                 );
-            }
 
             if (!/preview/.test(msg_id) && (type == "text" || next_pos >= project.tools.length)) {
                 const file_path = path.join(__dirname, `/../${output_file_uri}`);
                 const file_name = path.basename(file_path);
-                const fileStream = fs.createReadStream(file_path); // Use createReadStream for efficiency
+                const fileStream = fs.createReadStream(file_path); 
 
                 const data = new FormData();
                 await data.append(
@@ -286,7 +256,7 @@ function process_msg() {
                 new_img_uri: output_img,
             };
 
-            // Making sure database entry is created before sending message to avoid conflicts
+
             await Process.create(new_process);
             send_msg_tool(
                 new_msg_id,
@@ -309,46 +279,48 @@ function process_msg() {
     });
 }
 
-// Delete all projects from a user (for account deletion)
+
 router.delete("/:user/all", async (req, res, next) => {
     try {
+        
         const projects = await Project.getAll(req.params.user); 
         
-        // Filter only owned projects (where user_id matches)
-        const ownedProjects = projects.filter(p => p.user_id.toString() === req.params.user);
+        
+        const ownedProjects = projects.filter(p => p.user_id === req.params.user);
 
         for (let project of ownedProjects) {
-            // Delete all source images
+            
             for (let img of project.imgs) {
                 await delete_image(req.params.user, project._id, "src", img.og_img_key).catch(e => console.error(e));
             }
 
-            // Delete all result images
+            
             const results = await Result.getAll(req.params.user, project._id);
             for (let r of results) {
                 await delete_image(req.params.user, project._id, "out", r.img_key).catch(e => console.error(e));
                 await Result.delete(r.user_id, r.project_id, r.img_id);
             }
 
-            // Delete all preview images
+            
             const previews = await Preview.getAll(req.params.user, project._id);
             for (let p of previews) {
                 await delete_image(req.params.user, project._id, "preview", p.img_key).catch(e => console.error(e));
                 await Preview.delete(p.user_id, p.project_id, p.img_id);
             }
 
-            // Delete the project from database
+            
             await Project.delete(req.params.user, project._id);
         }
 
+        
         res.sendStatus(204);
     } catch (error) {
-        console.error("Error deleting user projects:", error);
-        res.status(500).jsonp("Error processing account deletion request");
+        console.error("Erro ao apagar dados do utilizador:", error);
+        res.status(500).jsonp("Erro ao processar pedido de remoção de conta");
     }
 });
 
-// Get list of all projects from a user
+
 router.get("/:user", (req, res, next) => {
     Project.getAll(req.params.user)
         .then((projects) => {
@@ -366,7 +338,7 @@ router.get("/:user", (req, res, next) => {
         .catch((_) => res.status(500).jsonp("Error acquiring user's projects"));
 });
 
-// Get a specific user's project
+
 router.get("/:user/:project", (req, res, next) => {
     Project.getOne(req.params.user, req.params.project)
         .then(async (project) => {
@@ -403,7 +375,7 @@ router.get("/:user/:project", (req, res, next) => {
         .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
-// Get a specific project's image
+
 router.get("/:user/:project/img/:img", async (req, res, next) => {
     Project.getOne(req.params.user, req.params.project)
         .then(async (project) => {
@@ -427,7 +399,7 @@ router.get("/:user/:project/img/:img", async (req, res, next) => {
         .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
-// Get project images
+
 router.get("/:user/:project/imgs", async (req, res, next) => {
     Project.getOne(req.params.user, req.params.project)
         .then(async (project) => {
@@ -463,15 +435,15 @@ router.get("/:user/:project/imgs", async (req, res, next) => {
 });
 
 
-// Get results of processing a project
+
 router.get("/:user/:project/process", (req, res, next) => {
-  const format = req.query.format || "zip"; // Lê o formato da query string (padrão: zip)
+  const format = req.query.format || "zip"; 
 
   Project.getOne(req.params.user, req.params.project)
     .then(async (_) => {
       const results = await Result.getAll(req.params.user, req.params.project);
 
-      // --- OPÇÃO JSON ---
+  
       if (format === "json") {
         const jsonOutput = {
           projectId: req.params.project,
@@ -481,7 +453,7 @@ router.get("/:user/:project/process", (req, res, next) => {
         };
 
         for (let r of results) {
-          // Obter URL assinada ou pública para incluir no JSON
+
           const resp = await get_image_docker(
             r.user_id,
             r.project_id,
@@ -502,7 +474,7 @@ router.get("/:user/:project/process", (req, res, next) => {
         return res.status(200).send(JSON.stringify(jsonOutput, null, 2));
       }
 
-      // --- OPÇÃO ZIP (Lógica Original) ---
+
       const zip = new JSZip();
       const result_path = `/../images/users/${req.params.user}/projects/${req.params.project}/tmp`;
 
@@ -556,20 +528,20 @@ router.get("/:user/:project/process", (req, res, next) => {
 });
 
 
-// Get results of processing a project
+
 router.get("/:user/:project/process/url", (req, res, next) => {
-  // 1. Verificar permissão de quem pede (Dono ou Colaborador)
+
   Project.getOne(req.params.user, req.params.project)
-    .then(async (project) => { // MUDADO: de "_" para "project"
+    .then(async (project) => { 
       if (!project) return res.status(404).jsonp("Projeto não encontrado");
 
       const ans = { 'imgs': [], 'texts': [] };
 
-      // 2. BUSCAR RESULTADOS DO DONO (project.user_id)
+
       const results = await Result.getAll(project.user_id, project._id);
 
       for (let r of results) {
-        // 3. GERAR URLS DA PASTA DO DONO
+
         const resp = await get_image_host(
           project.user_id, 
           project._id,
@@ -594,9 +566,9 @@ router.get("/:user/:project/process/url", (req, res, next) => {
 });
 
 
-// Get number of advanced tools used in a project
+
 router.get("/:user/:project/advanced_tools", (req, res, next) => {
-    // Getting last processed request from project in order to get their result's path
+
     Project.getOne(req.params.user, req.params.project)
         .then((project) => {
             const tools = project.tools;
@@ -606,14 +578,14 @@ router.get("/:user/:project/advanced_tools", (req, res, next) => {
                 if (advanced_tools.includes(t.procedure)) ans++;
             }
 
-            // Multiply answer by number of images to reduce chance of a single project with infinite images
+
             ans *= project.imgs.length;
             res.status(200).jsonp(ans);
         })
         .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
-// Create new project
+
 router.post("/:user", (req, res, next) => {
     const project = {
         name: req.body.name,
@@ -627,15 +599,14 @@ router.post("/:user", (req, res, next) => {
         .catch((_) => res.status(502).jsonp(`Error creating new project`));
 });
 
-router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next) => {
+router.post("/:user/:project/preview/:img", (req, res, next) => {
     const activeUserId = req.headers['x-user-id'] || req.params.user;
 
     Project.getOne(activeUserId, req.params.project)
         .then(async (project) => {
             if (!project) return res.status(404).jsonp("Project not found");
 
-            // We use project.user_id (THE OWNER) for all file system and Minio calls
-            // because that is where the files are actually stored.
+
             const ownerId = project.user_id;
 
             const prev_preview = await Preview.getAll(ownerId, project._id);
@@ -649,7 +620,7 @@ router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next
             const timestamp = new Date().toISOString();
             const og_img_uri = img.og_uri;
 
-            // FIX: Use ownerId here to prevent 404
+
             const resp = await get_image_docker(ownerId, project._id, "src", img.og_img_key);
             const url = resp.data.url;
 
@@ -664,13 +635,13 @@ router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next
             const img_name_parts = img.new_uri.split("/");
             const img_name = img_name_parts[img_name_parts.length - 1];
 
-            // FIX: The path on disk also belongs to the owner's folder
+
             const new_img_uri = `./images/users/${ownerId}/projects/${project._id}/preview/${img_name}`;
 
             const tool = project.tools.filter((t) => t.position == 0)[0];
 
             const process = {
-                // USE activeUserId HERE: This ensures the COLLABORATOR gets the notification
+
                 user_id: activeUserId,
                 project_id: project._id,
                 img_id: img._id,
@@ -688,11 +659,10 @@ router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next
 });
 
 
-// Add new image to a project
+
 router.post(
     "/:user/:project/img",
     upload.single("image"),
-    checkEditPermission,
     async (req, res, next) => {
         if (!req.file) {
             res.status(400).jsonp("No file found");
@@ -732,7 +702,7 @@ router.post(
                         const og_uri = `./images/users/${req.params.user}/projects/${req.params.project}/src/${req.file.originalname}`;
                         const new_uri = `./images/users/${req.params.user}/projects/${req.params.project}/out/${req.file.originalname}`;
 
-                        // Insert new image
+                       
                         project["imgs"].push({
                             og_uri: og_uri,
                             new_uri: new_uri,
@@ -755,9 +725,9 @@ router.post(
     }
 );
 
-// Add new tool to a project
-router.post("/:user/:project/tool", checkEditPermission, (req, res, next) => {
-    // Reject posts to tools that don't fullfil the requirements
+
+router.post("/:user/:project/tool", (req, res, next) => {
+
     if (!req.body.procedure || !req.body.params) {
         res
             .status(400)
@@ -773,12 +743,12 @@ router.post("/:user/:project/tool", checkEditPermission, (req, res, next) => {
     axios
         .get(users_ms + `${req.params.user}/type`, { httpsAgent: httpsAgent })
         .then((resp) => {
-            // Check user type before proceeding
+
             if (!required_types.includes(resp.data.type)) {
-                return res.status(403).jsonp(`User type can't use this tool`); // Return a 403 Forbidden
+                return res.status(403).jsonp(`User type can't use this tool`); 
             }
 
-            // Get project and insert new tool
+            
             Project.getOne(req.params.user, req.params.project)
                 .then((project) => {
                     const tool = {
@@ -799,32 +769,30 @@ router.post("/:user/:project/tool", checkEditPermission, (req, res, next) => {
         .catch((_) => res.send(401).jsonp(`Error accessing picturas-user-ms`));
 });
 
-// Reorder tools of a project
-// Reorder tools of a project
-router.post("/:user/:project/reorder", checkEditPermission, (req, res, next) => {
+
+router.post("/:user/:project/reorder", (req, res, next) => {
   Project.getOne(req.params.user, req.params.project)
     .then(async (project) => {
-      // 1. Criar uma nova lista temporária apenas com os dados essenciais
+
       const newTools = [];
       
-      // req.body deve ser o array de ferramentas na nova ordem
+
       if (req.body && Array.isArray(req.body)) {
           for (let i = 0; i < req.body.length; i++) {
             const t = req.body[i];
             newTools.push({
-              position: i, // <--- Forçamos a posição correta aqui (0, 1, 2...)
+              position: i, 
               procedure: t.procedure,
               params: t.params
-              // Não incluímos o _id antigo para evitar conflitos, o Mongo gera novos
+
             });
           }
       }
 
-      // 2. Substituir a lista de ferramentas
+
       project.tools = newTools;
 
-      // 3. USAR .save() PARA GARANTIR PERSISTÊNCIA
-      // O método Project.update anterior falhava muitas vezes com arrays
+
       try {
         await project.save();
         res.status(204).jsonp();
@@ -839,15 +807,15 @@ router.post("/:user/:project/reorder", checkEditPermission, (req, res, next) => 
     });
 });
 
-// Process a specific project
-router.post("/:user/:project/process", checkEditPermission, (req, res, next) => {
+
+router.post("/:user/:project/process", (req, res, next) => {
     const activeUserId = req.headers['x-user-id'] || req.params.user;
 
     Project.getOne(activeUserId, req.params.project)
         .then(async (project) => {
             if (!project) return res.status(404).jsonp("Projeto não encontrado");
 
-            // 1. Limpar resultados anteriores na pasta do DONO
+        
             
 
             if (project.tools.length == 0) return res.status(400).jsonp("Nenhuma ferramenta selecionada");
@@ -857,7 +825,7 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
                 .then(async (resp) => {
                     if (!resp.data) return res.status(404).jsonp("Limite de operações diárias atingido");
 
-                    // 2. Caminhos no Sistema de Ficheiros (Sempre na pasta do DONO)
+                  
                     const source_path = `/../images/users/${project.user_id}/projects/${project._id}/src`;
                     const result_path = `/../images/users/${project.user_id}/projects/${project._id}/out`;
 
@@ -873,7 +841,7 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
 
                     for (let img of project.imgs) {
                         try {
-                            // 3. Buscar imagem original do MinIO (Pasta do DONO)
+
                             const respImg = await get_image_docker(project.user_id, project._id, "src", img.og_img_key);
                             const img_resp = await axios.get(respImg.data.url, { responseType: "stream" });
 
@@ -886,7 +854,7 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
 
                             const msg_id = `request-${uuidv4()}`;
                             const process = {
-                                user_id: activeUserId, // Quem recebe a notificação
+                                user_id: activeUserId, 
                                 project_id: project._id,
                                 img_id: img._id,
                                 msg_id: msg_id,
@@ -910,14 +878,14 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
         .catch((_) => res.status(501).jsonp("Erro ao adquirir projeto"));
 });
 
-// Update a specific project
-router.put("/:user/:project", checkEditPermission, (req, res, next) => {
+
+router.put("/:user/:project", (req, res, next) => {
   Project.getOne(req.params.user, req.params.project)
     .then((project) => {
-      // Atualiza o nome se existir
+    
       project.name = req.body.name || project.name;
       
-      // ADICIONA ISTO: Atualiza as tools se elas vierem no pedido
+
       if (req.body.tools) {
         project.tools = req.body.tools;
       }
@@ -931,9 +899,9 @@ router.put("/:user/:project", checkEditPermission, (req, res, next) => {
     .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
-// Update a tool from a specific project
-router.put("/:user/:project/tool/:tool", checkEditPermission, (req, res, next) => {
-    // Get project and update required tool with new data, keeping it's original position and procedure
+
+router.put("/:user/:project/tool/:tool", (req, res, next) => {
+  
     Project.getOne(req.params.user, req.params.project)
         .then((project) => {
             try {
@@ -963,10 +931,10 @@ router.put("/:user/:project/tool/:tool", checkEditPermission, (req, res, next) =
         .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
-// Delete a project
-router.delete("/:user/:project", checkOwnerOnly, (req, res, next) => {
+
+router.delete("/:user/:project", (req, res, next) => {
     Project.getOne(req.params.user, req.params.project).then(async (project) => {
-        // Remove all images related to the project from the file system
+
         const previous_img = JSON.parse(JSON.stringify(project["imgs"]));
         for (let img of previous_img) {
             await delete_image(
@@ -975,7 +943,7 @@ router.delete("/:user/:project", checkOwnerOnly, (req, res, next) => {
                 "src",
                 img.og_img_key
             );
-            project["imgs"].remove(img); // Not really needed, but in case of error serves as reference point
+            project["imgs"].remove(img);
         }
 
         const results = await Result.getAll(req.params.user, req.params.project);
@@ -1003,9 +971,9 @@ router.delete("/:user/:project", checkOwnerOnly, (req, res, next) => {
     });
 });
 
-// Delete an image from a project
-router.delete("/:user/:project/img/:img", checkEditPermission, (req, res, next) => {
-    // Get project and delete specified image
+
+router.delete("/:user/:project/img/:img", (req, res, next) => {
+
     Project.getOne(req.params.user, req.params.project)
         .then(async (project) => {
             try {
@@ -1071,9 +1039,9 @@ router.delete("/:user/:project/img/:img", checkEditPermission, (req, res, next) 
         .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
-// Delete a tool from a project
-router.delete("/:user/:project/tool/:tool", checkEditPermission, (req, res, next) => {
-    // Get project and delete specified tool, updating the position of all tools that follow
+
+router.delete("/:user/:project/tool/:tool", (req, res, next) => {
+ 
     Project.getOne(req.params.user, req.params.project)
         .then((project) => {
             try {
@@ -1100,7 +1068,7 @@ router.delete("/:user/:project/tool/:tool", checkEditPermission, (req, res, next
         .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
-router.post("/:user/:project/cancel", checkEditPermission, (req, res, next) => {
+router.post("/:user/:project/cancel", (req, res, next) => {
     Process.deleteAll(req.params.user, req.params.project)
         .then((_) => res.sendStatus(204))
         .catch((_) => res.status(500).jsonp("Error cancelling project processing"));
@@ -1112,92 +1080,28 @@ router.post("/:id/share", async(req, res)=>{
         if(!userId){
             return res.status(400).json({error: "Usuário não autenticado."});
         }
-        const permission = req.body.permission || 'view';
-        const email = req.body.email || '';
-        const token = await Project.generateShareToken(userId, req.params.id, permission, email);
+        const token = await Project.generateShareToken(userId, req.params.id);
         res.json({token});
     }catch (error){
         res.status(403).json({error: error.message});
     }
 });
 
-router.get("/:user/:project/shares", checkViewPermission, async(req, res) => {
-    try {
-        const userId = req.headers['x-user-id'];
-        const projectId = req.params.project;
-        
-        // Verificar se é o owner
-        const project = await Project.getOne(userId, projectId);
-        if (!project || project.user_id.toString() !== userId.toString()) {
-            return res.status(403).json({ error: "Apenas o owner pode ver os shares" });
-        }
-        
-        const ShareController = require("../controllers/share");
-        const shares = await ShareController.getProjectShares(projectId);
-        res.json(shares);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.delete("/:user/:project/share/:shareId", checkOwnerOnly, async(req, res) => {
-    try {
-        const ShareController = require("../controllers/share");
-        const Share = require("../models/share");
-        const ProjectModel = require("../models/project");
-        
-        // Obter dados do share antes de revogar
-        const share = await Share.findById(req.params.shareId);
-        if (!share) {
-            return res.status(404).json({ error: "Share não encontrado" });
-        }
-        
-        // Revogar o share
-        await ShareController.revokeShare(req.params.shareId);
-        
-        // Remover o colaborador do projeto
-        const projectData = await Project.getOne(req.params.user, req.params.project);
-        if (projectData && share.userId) {
-            await ProjectModel.findByIdAndUpdate(
-                req.params.project,
-                { $pull: { collaborators: { userId: share.userId } } },
-                { new: true }
-            );
-        }
-        
-        // Enviar notificação via WebSocket se houver userId
-        if (share.userId) {
-            send_msg_client(`access_revoked_${share.userId}`, {
-                type: 'access_revoked',
-                projectId: req.params.project,
-                projectName: projectData?.name || 'Unknown Project',
-                message: 'O seu acesso a este projeto foi revogado pelo owner.'
-            });
-        }
-        
-        res.sendStatus(204);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 router.post("/join/:token", async(req, res) => {
     try {
         const userId = req.headers['x-user-id'];
-        const userEmail = req.body.email;
 
         if (!userId) {
             return res.status(400).json({ error: "User ID não fornecido pelo Gateway." });
         }
 
-        const project = await Project.getSharedProject(userId, req.params.token, userEmail);
+        const project = await Project.getSharedProject(userId, req.params.token);
         if (!project) {
             return res.status(404).json({ error: "Não foi possível entrar no projeto." });
         }
         res.json({ message: "Entrou no projeto com sucesso." });
     } catch (error) {
-        const status = error.message.includes("Email inválido") ? 403 : 400;
-        res.status(status).json({ error: error.message });
+        res.status(400).json({ error: error.message });
     }
 });
 

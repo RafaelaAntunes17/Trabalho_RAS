@@ -117,15 +117,15 @@ export const useUpdateUserPassword = () => {
     },
   });
 };
-
 export const useDeleteUser = () => {
   return useMutation({
     mutationFn: deleteUser,
     onSuccess: () => {
-      // Limpar a sessão do armazenamento local imediatamente
+      // 1. Limpar a sessão do armazenamento local imediatamente
       localStorage.removeItem("session");
       
-      // Forçar um redirecionamento para o login
+      // 2. Forçar um redirecionamento "duro" para o login
+      // Isto garante que toda a memória/cache do frontend é limpa
       window.location.href = "/login";
     },
   });

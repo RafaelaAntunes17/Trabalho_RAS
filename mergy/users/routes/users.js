@@ -3,20 +3,10 @@ var router = express.Router();
 
 const User = require("../controllers/user");
 const auth = require("../auth/auth");
-const https = require("https");
-const fs = require("fs");
-
+const https = require("https"); // MUDAR DE http PARA https
+// Defina o URL do serviço de projetos (ajuste a porta/host conforme o seu docker-compose)
+const projects_ms = process.env.PROJECTS_URL || "https://projects:9001/"; // Alterado para HTTPS
 const max_free_daily_op = process.env.FREE_DAILY_OP || 5;
-const projects_ms = process.env.PROJECTS_URL || "https://projects:9001/";
-
-const key = fs.readFileSync(__dirname + "/../certs/selfsigned.key");
-const cert = fs.readFileSync(__dirname + "/../certs/selfsigned.crt");
-
-const httpsAgent = https.Agent({
-  rejectUnauthorized: false,
-  cert: cert,
-  key: key,
-});
 
 function get_cur_date() {
   const date = new Date();
@@ -254,63 +244,70 @@ router.put("/:user/process/:advanced_tools", function (req, res, next) {
     .catch((_) => res.status(701).jsonp(`Error acquiring user's information.`));
 });
 
-// Delete a user
+
+// DEBUG MODE: Rota de eliminação
 router.delete("/:user", function (req, res, next) {
-  console.log("--- DELETE USER REQUEST ---");
-  console.log("Target user:", req.params.user);
+  console.log("--- INÍCIO DO PEDIDO DE ELIMINAÇÃO ---");
+  console.log("Utilizador alvo:", req.params.user);
 
   try {
-    // Build URL to delete all user projects
-    const fullUrlString = `${projects_ms}${req.params.user}/all`;
-    console.log("Full URL:", fullUrlString);
+    // 1. Verificar URL base
+    const envUrl = process.env.PROJECTS_URL;
+    const defaultUrl = "https://projects:9001/";
+    const projects_ms_url = envUrl || defaultUrl;
+    
+    console.log("URL Base usado:", projects_ms_url);
+
+    // 2. Construir URL completo
+    const fullUrlString = `${projects_ms_url}${req.params.user}/all`;
+    console.log("URL Completa String:", fullUrlString);
 
     const targetUrl = new URL(fullUrlString);
-    console.log("Parsed URL:", targetUrl.hostname, targetUrl.port, targetUrl.pathname);
+    console.log("URL Parseada com sucesso:", targetUrl.hostname, targetUrl.port, targetUrl.pathname);
 
     const options = {
       hostname: targetUrl.hostname,
       port: targetUrl.port,
       path: targetUrl.pathname,
       method: "DELETE",
-      agent: httpsAgent,
+      rejectUnauthorized: false, // Aceitar certificados auto-assinados
     };
 
-    console.log("Starting HTTPS request...");
+    console.log("A iniciar pedido HTTPS...");
 
-    // Make request to projects service
+    // 3. Iniciar Pedido
     const request = https.request(options, (response) => {
-      console.log("Response from Projects Service. Status:", response.statusCode);
+      console.log("Recebida resposta do Projects Service. Status:", response.statusCode);
       
       if (response.statusCode === 200 || response.statusCode === 204) {
-        console.log("Positive response. Deleting user from database...");
+        console.log("Resposta positiva. A apagar utilizador local...");
         User.delete(req.params.user)
           .then((_) => {
-            console.log("User deleted successfully.");
+            console.log("Utilizador apagado com sucesso.");
             res.sendStatus(204);
           })
           .catch((err) => {
-            console.error("Error in User.delete:", err);
+            console.error("Erro no Mongo (User.delete):", err);
             res.status(705).jsonp(`Error deleting user's information`);
           });
       } else {
-        console.error("Projects Service returned error:", response.statusCode);
-        response.on('data', d => console.log("Error body:", d.toString()));
-        res.status(500).jsonp("Error cleaning up user data.");
+        console.error("Projects Service retornou erro:", response.statusCode);
+        response.on('data', d => console.log("Corpo do erro:", d.toString()));
+        res.status(500).jsonp("Erro ao limpar dados associados ao utilizador.");
       }
     });
 
     request.on("error", (error) => {
-      console.error("HTTPS ERROR:", error.message);
-      res.status(500).jsonp("Internal communication error: " + error.message);
+      console.error("ERRO DE REDE/HTTPS:", error.message);
+      res.status(500).jsonp("Erro de comunicação interna: " + error.message);
     });
 
     request.end();
-    console.log("Request sent. Waiting for response...");
+    console.log("Pedido enviado. À espera de resposta...");
 
   } catch (e) {
-    console.error("SYNCHRONOUS ERROR:", e);
-    res.status(500).jsonp("Internal server error: " + e.message);
+    console.error("ERRO SÍNCRONO (CRASH):", e);
+    res.status(500).jsonp("Erro interno no servidor de utilizadores: " + e.message);
   }
 });
-
 module.exports = router;
