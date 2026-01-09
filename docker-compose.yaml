@@ -462,7 +462,19 @@ services:
       - RABBITMQ_USER=user
       - RABBITMQ_PASS=password
       - JWT_SECRET_KEY=lisan_al_gaib
-
+  backup_service:
+    build: ./backups
+    container_name: picturas-backup-service
+    restart: always
+    depends_on:
+      - users_mongoDB
+      - projects_mongoDB
+      - subscriptions_mongoDB
+      - minio
+    networks:
+      - elk
+    volumes:
+      - ./local_backups:/backups_data
 networks:
   elk:
     driver: bridge
