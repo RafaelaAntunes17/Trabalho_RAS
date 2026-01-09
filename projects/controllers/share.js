@@ -29,7 +29,7 @@ module.exports.revokeShare = async (shareId) => {
 
 module.exports.getProjectShares = async (projectId) => {
   return await Share.find({ projectId, revokedAt: null, expiresAt: { $gt: new Date() } })
-    .select("_id email permission createdAt")
+    .select("_id email permission createdAt token")
     .sort({ createdAt: -1 });
 };
 

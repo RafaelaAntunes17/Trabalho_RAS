@@ -21,6 +21,7 @@ interface Share {
   email: string;
   permission: "view" | "edit";
   createdAt: string;
+  token: string;
 }
 
 interface ManageCollaboratorsProps {
@@ -92,10 +93,16 @@ export function ManageCollaborators({
     },
   });
 
-  const copyToClipboard = (email: string, shareId: string) => {
-    navigator.clipboard.writeText(email);
+  const copyToClipboard = (token: string, shareId: string) => {
+    const link = `${window.location.origin}/invite/${token}`;
+    navigator.clipboard.writeText(link);
     setCopiedId(shareId);
     setTimeout(() => setCopiedId(null), 2000);
+    
+    toast({
+      title: "Link copiado",
+      description: "Link de acesso copiado para a área de transferência.",
+    });
   };
 
   return (
@@ -147,7 +154,7 @@ export function ManageCollaborators({
                       size="icon"
                       variant="ghost"
                       className="h-8 w-8"
-                      onClick={() => copyToClipboard(share.email, share._id)}
+                      onClick={() => copyToClipboard(share.token, share._id)}
                     >
                       {copiedId === share._id ? (
                         <Check className="h-4 w-4 text-green-500" />
