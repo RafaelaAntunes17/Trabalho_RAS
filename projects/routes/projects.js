@@ -560,8 +560,8 @@ router.get("/:user/:project/process", (req, res, next) => {
 router.get("/:user/:project/process/url", (req, res, next) => {
   // 1. Verificar permissão de quem pede (Dono ou Colaborador)
   Project.getOne(req.params.user, req.params.project)
-    .then(async (project) => { // MUDADO: de "_" para "project"
-      if (!project) return res.status(404).jsonp("Projeto não encontrado");
+    .then(async (project) => { // CHANGED: from "_" to "project"
+      if (!project) return res.status(404).jsonp("Project not found");
 
       const ans = { 'imgs': [], 'texts': [] };
 
@@ -847,7 +847,7 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
 
     Project.getOne(activeUserId, req.params.project)
         .then(async (project) => {
-            if (!project) return res.status(404).jsonp("Projeto não encontrado");
+            if (!project) return res.status(404).jsonp("Project not found");
 
             // 1. Limpar resultados anteriores na pasta do DONO
             
@@ -909,7 +909,7 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
                 })
                 .catch((_) => res.status(400).jsonp("Erro ao verificar conta do utilizador"));
         })
-        .catch((_) => res.status(501).jsonp("Erro ao adquirir projeto"));
+        .catch((_) => res.status(501).jsonp("Error acquiring project"));
 });
 
 // Update a specific project
@@ -1112,7 +1112,7 @@ router.post("/:id/share", async(req, res)=>{
     try{
         const userId = req.headers['x-user-id'];
         if(!userId){
-            return res.status(400).json({error: "Usuário não autenticado."});
+            return res.status(400).json({error: "User not authenticated."});
         }
         const permission = req.body.permission || 'view';
         const email = req.body.email || '';
@@ -1128,10 +1128,10 @@ router.get("/:user/:project/shares", checkViewPermission, async(req, res) => {
         const userId = req.headers['x-user-id'];
         const projectId = req.params.project;
         
-        // Verificar se é o owner
+        // Check if is owner
         const project = await Project.getOne(userId, projectId);
         if (!project || project.user_id.toString() !== userId.toString()) {
-            return res.status(403).json({ error: "Apenas o owner pode ver os shares" });
+            return res.status(403).json({ error: "Only the owner can view shares" });
         }
         
         const ShareController = require("../controllers/share");
@@ -1148,16 +1148,16 @@ router.delete("/:user/:project/share/:shareId", checkOwnerOnly, async(req, res) 
         const Share = require("../models/share");
         const ProjectModel = require("../models/project");
         
-        // Obter dados do share antes de revogar
+        // Get share data before revoking
         const share = await Share.findById(req.params.shareId);
         if (!share) {
             return res.status(404).json({ error: "Share não encontrado" });
         }
         
-        // Revogar o share
+        // Revoke share
         await ShareController.revokeShare(req.params.shareId);
         
-        // Remover o colaborador do projeto
+        // Remove collaborator from project
         const projectData = await Project.getOne(req.params.user, req.params.project);
         if (projectData && share.userId) {
             await ProjectModel.findByIdAndUpdate(
@@ -1167,13 +1167,13 @@ router.delete("/:user/:project/share/:shareId", checkOwnerOnly, async(req, res) 
             );
         }
         
-        // Enviar notificação via WebSocket se houver userId
+        // Send notification via WebSocket if userId exists
         if (share.userId) {
             send_msg_client(`access_revoked_${share.userId}`, {
                 type: 'access_revoked',
                 projectId: req.params.project,
                 projectName: projectData?.name || 'Unknown Project',
-                message: 'O seu acesso a este projeto foi revogado pelo owner.'
+                message: 'Your access to this project has been revoked by the owner.'
             });
         }
         
@@ -1189,16 +1189,16 @@ router.post("/join/:token", async(req, res) => {
         const userEmail = req.body.email;
 
         if (!userId) {
-            return res.status(400).json({ error: "User ID não fornecido pelo Gateway." });
+            return res.status(400).json({ error: "User ID not provided by Gateway." });
         }
 
         const project = await Project.getSharedProject(userId, req.params.token, userEmail);
         if (!project) {
-            return res.status(404).json({ error: "Não foi possível entrar no projeto." });
+            return res.status(404).json({ error: "Could not join the project." });
         }
-        res.json({ message: "Entrou no projeto com sucesso." });
+        res.json({ message: "Successfully joined the project." });
     } catch (error) {
-        const status = error.message.includes("Email inválido") ? 403 : 400;
+        const status = error.message.includes("Invalid email") ? 403 : 400;
         res.status(status).json({ error: error.message });
     }
 });

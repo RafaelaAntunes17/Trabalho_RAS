@@ -63,13 +63,13 @@ module.exports.getSharedProject = async(user_id, token, userEmail) => {
       throw new Error("Link inválido, expirado ou revogado");
     }
 
-    // Validar se o email corresponde - se o share requer um email específico, validar
+    // Validate if email matches - if share requires specific email, validate
     if (share.email) {
       if (!userEmail) {
-        throw new Error("Este convite requer um endereço de email válido.");
+        throw new Error("This invitation requires a valid email address.");
       }
       if (userEmail.toLowerCase() !== share.email.toLowerCase()) {
-        throw new Error("Email inválido para o link de acesso");
+        throw new Error("Invalid email for access link");
       }
     }
 

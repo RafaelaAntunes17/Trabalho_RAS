@@ -1,6 +1,6 @@
 const Project = require("../controllers/project");
 
-// Middleware que verifica se o usuário tem permissão de edição
+// Middleware to check if user has edit permission
 const checkEditPermission = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
@@ -12,17 +12,17 @@ const checkEditPermission = async (req, res, next) => {
 
     const permission = await Project.getUserPermission(userId, projectId);
     
-    // Se não tem permissão nenhuma, retorna 403
+    // If no permission, return 403
     if (!permission) {
-      return res.status(403).json({ error: "Acesso negado ao projeto" });
+      return res.status(403).json({ error: "Access denied to project" });
     }
     
-    // Se tem permissão view e quer fazer uma ação que exige edit, retorna 403
+    // If view permission but action requires edit, return 403
     if (permission === 'view') {
-      return res.status(403).json({ error: "Você tem apenas permissão de leitura neste projeto" });
+      return res.status(403).json({ error: "You only have read permission for this project" });
     }
     
-    // Continua se tem permissão edit ou é dono
+    // Continue if has edit permission or is owner
     req.userPermission = permission;
     next();
   } catch (error) {
@@ -30,20 +30,20 @@ const checkEditPermission = async (req, res, next) => {
   }
 };
 
-// Middleware que verifica se o usuário pode ver/acessar (view ou edit)
+// Middleware to check if user can view/access (view or edit)
 const checkViewPermission = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
     const projectId = req.params.project || req.params.id;
     
     if (!userId || !projectId) {
-      return res.status(400).json({ error: "Dados inválidos" });
+      return res.status(400).json({ error: "Invalid data" });
     }
 
     const permission = await Project.getUserPermission(userId, projectId);
     
     if (!permission) {
-      return res.status(403).json({ error: "Acesso negado ao projeto" });
+      return res.status(403).json({ error: "Access denied to project" });
     }
     
     req.userPermission = permission;
@@ -53,26 +53,26 @@ const checkViewPermission = async (req, res, next) => {
   }
 };
 
-// Middleware que verifica se o usuário é o dono do projeto
+// Middleware to check if user is the project owner
 const checkOwnerOnly = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
     const projectId = req.params.project || req.params.id;
     
     if (!userId || !projectId) {
-      return res.status(400).json({ error: "Dados inválidos" });
+      return res.status(400).json({ error: "Invalid data" });
     }
 
     const Project_model = require("../models/project");
     const project = await Project_model.findOne({ _id: projectId });
     
     if (!project) {
-      return res.status(404).json({ error: "Projeto não encontrado" });
+      return res.status(404).json({ error: "Project not found" });
     }
     
-    // Verifica se é o dono
+    // Check if is owner
     if (project.user_id.toString() !== userId.toString()) {
-      return res.status(403).json({ error: "Apenas o dono pode executar esta ação" });
+      return res.status(403).json({ error: "Only the owner can perform this action" });
     }
     
     req.userPermission = 'edit';
