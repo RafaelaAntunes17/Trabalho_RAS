@@ -63,9 +63,14 @@ module.exports.getSharedProject = async(user_id, token, userEmail) => {
       throw new Error("Link inválido, expirado ou revogado");
     }
 
-    // Validar se o email corresponde
-    if (userEmail && share.email && userEmail.toLowerCase() !== share.email.toLowerCase()) {
-      throw new Error("Email inválido para o link de acesso");
+    // Validar se o email corresponde - se o share requer um email específico, validar
+    if (share.email) {
+      if (!userEmail) {
+        throw new Error("Este convite requer um endereço de email válido.");
+      }
+      if (userEmail.toLowerCase() !== share.email.toLowerCase()) {
+        throw new Error("Email inválido para o link de acesso");
+      }
     }
 
     const decoded = jwt.verify(token, "SECRET_KEY");
