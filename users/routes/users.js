@@ -145,8 +145,8 @@ router.post("/", function (req, res, next) {
     operations: [],
   };
 
-  console.log(user);
-  console.log(req.body);
+  // console.log(user);
+  // console.log(req.body);
 
   User.create(user)
     .then((user) =>
@@ -256,16 +256,16 @@ router.put("/:user/process/:advanced_tools", function (req, res, next) {
 
 // Delete a user
 router.delete("/:user", function (req, res, next) {
-  console.log("--- DELETE USER REQUEST ---");
-  console.log("Target user:", req.params.user);
+  // console.log("--- DELETE USER REQUEST ---");
+  // console.log("Target user:", req.params.user);
 
   try {
     // Build URL to delete all user projects
     const fullUrlString = `${projects_ms}${req.params.user}/all`;
-    console.log("Full URL:", fullUrlString);
+    // console.log("Full URL:", fullUrlString);
 
     const targetUrl = new URL(fullUrlString);
-    console.log("Parsed URL:", targetUrl.hostname, targetUrl.port, targetUrl.pathname);
+    // console.log("Parsed URL:", targetUrl.hostname, targetUrl.port, targetUrl.pathname);
 
     const options = {
       hostname: targetUrl.hostname,
@@ -275,17 +275,17 @@ router.delete("/:user", function (req, res, next) {
       agent: httpsAgent,
     };
 
-    console.log("Starting HTTPS request...");
+    // console.log("Starting HTTPS request...");
 
     // Make request to projects service
     const request = https.request(options, (response) => {
-      console.log("Response from Projects Service. Status:", response.statusCode);
+      // console.log("Response from Projects Service. Status:", response.statusCode);
       
       if (response.statusCode === 200 || response.statusCode === 204) {
-        console.log("Positive response. Deleting user from database...");
+        // console.log("Positive response. Deleting user from database...");
         User.delete(req.params.user)
           .then((_) => {
-            console.log("User deleted successfully.");
+            // console.log("User deleted successfully.");
             res.sendStatus(204);
           })
           .catch((err) => {
@@ -305,7 +305,7 @@ router.delete("/:user", function (req, res, next) {
     });
 
     request.end();
-    console.log("Request sent. Waiting for response...");
+    // console.log("Request sent. Waiting for response...");
 
   } catch (e) {
     console.error("SYNCHRONOUS ERROR:", e);

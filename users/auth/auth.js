@@ -26,8 +26,8 @@ function validate_jwt(user, token) {
       console.error(err);
       return false;
     }
-    console.log(decoded);
-    console.log(user);
+    // console.log(decoded);
+    // console.log(user);
     return decoded.id === user._id.toString(); // the toString its because the user._id is a ObjectId
   });
 }

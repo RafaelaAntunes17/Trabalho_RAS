@@ -30,7 +30,7 @@ module.exports.create = async (cardData, subscriptionId) => {
 module.exports.removeCard = async (idCard) => {
     try {
         const deletedCard = await Card.findByIdAndDelete(idCard);
-        console.log('Card deleted successfully:', deletedCard);
+        // console.log('Card deleted successfully:', deletedCard);
     } catch (error) {
         console.error('Error deleting card:', error);
     }
@@ -39,7 +39,7 @@ module.exports.removeCard = async (idCard) => {
 module.exports.removeBySubscriptionId = async (subscriptionId) => {
     try {
         const deletedCards = await Card.deleteMany({ subscriptionId: subscriptionId });
-        console.log('Cards deleted successfully:', deletedCards);
+        // console.log('Cards deleted successfully:', deletedCards);
     } catch (error) {
         console.error('Error deleting cards:', error);
     }

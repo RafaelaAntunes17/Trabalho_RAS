@@ -15,7 +15,7 @@ const io = socketIo(httpServer, {
 });
 
 io.on("connection", (socket) => {
-    console.log("a user connected");
+    // console.log("a user connected");
 
     const token = socket.handshake.auth.token;
     if (token != null) {
@@ -25,14 +25,14 @@ io.on("connection", (socket) => {
                 return;
             }
 
-            console.log("Connecting to room:", payload.id)
+            // console.log("Connecting to room:", payload.id)
             socket.join(payload.id);
         });
     
     }
 
     socket.on("disconnect", () => {
-        console.log("A user disconnected");
+        // console.log("A user disconnected");
     });
 });
 
@@ -46,7 +46,7 @@ function process_msg() {
         const status = msg_content.status;
         const user = msg_content.user;
 
-        console.log('Received msg:', JSON.stringify(msg_content));
+        // console.log('Received msg:', JSON.stringify(msg_content));
 
         if (/update-client-preview/.test(msg_id)) {
             if (status == "error") {

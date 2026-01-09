@@ -37,7 +37,7 @@ router.get("/", function (req, res) {
 });
 
 router.post("/", upload.single("image"), (req, res) => {
-  console.log(req.body);
+  // console.log(req.body);
 
   const file = req.file;
   if (!file) {

@@ -11,7 +11,7 @@ const validator = require('validator');
 
 function validateCreditCard(cardNumber, expireMonth, expireYear, cvc) {
 	const expiryDate = `${expireMonth}/${expireYear}`;
-	console.log(expiryDate);
+    // console.log(expiryDate);
     // Validate card number
     if (!validator.isCreditCard(cardNumber)) {
         return {

@@ -121,7 +121,7 @@ function process_msg() {
             await Process.delete(process.user_id, process.project_id, process._id);
 
             if (msg_content.status === "error") {
-                console.log(JSON.stringify(msg_content));
+                // console.log(JSON.stringify(msg_content));
                 const project = await Project.getOne(process.user_id, process.project_id);
                 const notificationUsers = getProjectNotificationUsers(project);
                 
