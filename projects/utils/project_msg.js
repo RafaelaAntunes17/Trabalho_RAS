@@ -37,6 +37,7 @@ function send_msg_tool(msg_id, timestamp, og_img_uri, new_img_uri, tool, params)
     send_rabbit_msg(msg, queue);
 }
 
+// Send message to a single user or broadcast to multiple users
 function send_msg_client(msg_id, timestamp, user) {
     const queue = queues['ws'];
     const msg = {
@@ -47,6 +48,24 @@ function send_msg_client(msg_id, timestamp, user) {
     };
 
     send_rabbit_msg(msg, queue);
+}
+
+// Broadcast message to multiple users (project collaborators)
+function send_msg_client_broadcast(msg_id, timestamp, users) {
+    const queue = queues['ws'];
+    
+    // Ensure users is an array
+    const userArray = Array.isArray(users) ? users : [users];
+    
+    for (const user of userArray) {
+        const msg = {
+            "messageId": msg_id,
+            "timestamp": timestamp,
+            "user": user,
+            "status": 'success'
+        };
+        send_rabbit_msg(msg, queue);
+    }
 }
 
 function send_msg_client_error(msg_id, timestamp, user, error_code, error_msg) {
@@ -63,6 +82,26 @@ function send_msg_client_error(msg_id, timestamp, user, error_code, error_msg) {
     send_rabbit_msg(msg, queue);
 }
 
+// Broadcast error message to multiple users
+function send_msg_client_error_broadcast(msg_id, timestamp, users, error_code, error_msg) {
+    const queue = queues['ws'];
+    
+    // Ensure users is an array
+    const userArray = Array.isArray(users) ? users : [users];
+    
+    for (const user of userArray) {
+        const msg = {
+            "messageId": msg_id,
+            "timestamp": timestamp,
+            "user": user,
+            "status": "error",
+            "errorCode": error_code,
+            "errorMsg": error_msg
+        };
+        send_rabbit_msg(msg, queue);
+    }
+}
+
 function send_msg_client_preview(msg_id, timestamp, user, url) {
     const queue = queues['ws'];
     const msg = {
@@ -74,6 +113,25 @@ function send_msg_client_preview(msg_id, timestamp, user, url) {
     };
 
     send_rabbit_msg(msg, queue);
+}
+
+// Broadcast preview message to multiple users
+function send_msg_client_preview_broadcast(msg_id, timestamp, users, url) {
+    const queue = queues['ws'];
+    
+    // Ensure users is an array
+    const userArray = Array.isArray(users) ? users : [users];
+    
+    for (const user of userArray) {
+        const msg = {
+            "messageId": msg_id,
+            "timestamp": timestamp,
+            "status": 'success',
+            "user": user,
+            "img_url": url
+        };
+        send_rabbit_msg(msg, queue);
+    }
 }
 
 function send_msg_client_preview_error(msg_id, timestamp, user, error_code, error_msg) {
@@ -90,8 +148,39 @@ function send_msg_client_preview_error(msg_id, timestamp, user, error_code, erro
     send_rabbit_msg(msg, queue);
 }
 
+// Broadcast preview error to multiple users
+function send_msg_client_preview_error_broadcast(msg_id, timestamp, users, error_code, error_msg) {
+    const queue = queues['ws'];
+    
+    // Ensure users is an array
+    const userArray = Array.isArray(users) ? users : [users];
+    
+    for (const user of userArray) {
+        const msg = {
+            "messageId": msg_id,
+            "timestamp": timestamp,
+            "user": user,
+            "status": "error",
+            "errorCode": error_code,
+            "errorMsg": error_msg
+        };
+        send_rabbit_msg(msg, queue);
+    }
+}
+
 function read_msg(callback){
     read_rabbit_msg(queues['project'], callback);
 }
 
-module.exports = { send_msg_tool, send_msg_client, send_msg_client_error, send_msg_client_preview, send_msg_client_preview_error, read_msg };
+module.exports = { 
+    send_msg_tool, 
+    send_msg_client, 
+    send_msg_client_broadcast,
+    send_msg_client_error, 
+    send_msg_client_error_broadcast,
+    send_msg_client_preview, 
+    send_msg_client_preview_broadcast,
+    send_msg_client_preview_error, 
+    send_msg_client_preview_error_broadcast,
+    read_msg 
+};

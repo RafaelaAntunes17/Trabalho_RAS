@@ -1,4 +1,5 @@
 var Project = require("../models/project");
+var Share = require("../controllers/share");
 var jwt = require("jsonwebtoken");
 
 
@@ -47,8 +48,9 @@ module.exports.removeCollaboratorFromAll = (user_id) => {
   );
 };
 
-module.exports.generateShareToken = async(user_id, project_id, permission = 'view') => {
-  const project = await Project.findOne({ _id:project_id, user_id: user_id });
+
+module.exports.generateShareToken = async(user_id, project_id, permission = 'view', email = '') => {
+  const project = await Project.findOne({ _id: project_id, user_id: user_id });
   if(!project) throw new Error("Projeto não encontrado");
   if(!project.isShareable) throw new Error("Projeto não compartilhável");
 
@@ -56,22 +58,53 @@ module.exports.generateShareToken = async(user_id, project_id, permission = 'vie
     throw new Error("Permissão inválida. Use 'view' ou 'edit'");
   }
 
-  return jwt.sign({project_id: project_id, permission: permission}, "SECRET_KEY", {expiresIn: "24h"});
+  const token = jwt.sign({project_id: project_id, permission: permission}, "SECRET_KEY", {expiresIn: "24h"});
+  
+  // Guardar na BD para rastreamento e revogação
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 24);
+  
+  await Share.createShare(token, project_id, user_id, permission, email, expiresAt);
+  
+  return token;
 };
 
-module.exports.getSharedProject = async(user_id, token) => {
+module.exports.getSharedProject = async(user_id, token, userEmail) => {
   try{
+    // Verificar se o share foi revogado
+    const share = await Share.getShareByToken(token);
+    if (!share) {
+      throw new Error("Link inválido, expirado ou revogado");
+    }
+
+    // Validar se o email corresponde - se o share requer um email específico, validar
+    if (share.email) {
+      if (!userEmail) {
+        throw new Error("Este convite requer um endereço de email válido.");
+      }
+      if (userEmail.toLowerCase() !== share.email.toLowerCase()) {
+        throw new Error("Email inválido para o link de acesso");
+      }
+    }
+
     const decoded = jwt.verify(token, "SECRET_KEY");
     const projectId = decoded.project_id;
     const permission = decoded.permission || 'view';
 
-    return await Project.findOneAndUpdate(
+    const project = await Project.findOneAndUpdate(
       {_id: projectId, user_id: { $ne: user_id } },
       {$addToSet: {collaborators: { userId: user_id, permission: permission }}},
       {new: true}
-      );
+    );
+    
+    // Guardar o userId no share para notificações futuras
+    if (project) {
+      await Share.updateShareWithUserId(token, user_id);
+    }
+    
+    return project;
   }catch(err){
-    throw new Error("Token inválido ou expirado");
+    throw new Error(err.message || "Token inválido ou expirado");
   }
 };
 

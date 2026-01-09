@@ -16,9 +16,13 @@ const { v4: uuidv4 } = require('uuid');
 const {
     send_msg_tool,
     send_msg_client,
+    send_msg_client_broadcast,
     send_msg_client_error,
+    send_msg_client_error_broadcast,
     send_msg_client_preview,
+    send_msg_client_preview_broadcast,
     send_msg_client_preview_error,
+    send_msg_client_preview_error_broadcast,
     read_msg,
 } = require("../utils/project_msg");
 
@@ -61,6 +65,22 @@ const advanced_tools = [
     "people_ai",
 ];
 
+// Helper function to get all users who should receive project updates
+// Returns array of user IDs: owner + all collaborators
+function getProjectNotificationUsers(project) {
+    const users = [project.user_id];
+    
+    if (project.collaborators && Array.isArray(project.collaborators)) {
+        for (const collab of project.collaborators) {
+            if (collab.userId && !users.includes(collab.userId)) {
+                users.push(collab.userId);
+            }
+        }
+    }
+    
+    return users;
+}
+
 function advanced_tool_num(project) {
     const tools = project.tools;
     let ans = 0;
@@ -97,15 +117,18 @@ function process_msg() {
 
             if (msg_content.status === "error") {
                 console.log(JSON.stringify(msg_content));
+                const project = await Project.getOne(process.user_id, process.project_id);
+                const notificationUsers = getProjectNotificationUsers(project);
+                
                 if (/preview/.test(msg_id)) {
-                    send_msg_client_preview_error(`update-client-preview-${uuidv4()}`, timestamp, process.user_id, msg_content.error.code, msg_content.error.msg)
+                    send_msg_client_preview_error_broadcast(`update-client-preview-${uuidv4()}`, timestamp, notificationUsers, msg_content.error.code, msg_content.error.msg)
                 }
 
                 else {
-                    send_msg_client_error(
+                    send_msg_client_error_broadcast(
                         user_msg_id,
                         timestamp,
-                        process.user_id,
+                        notificationUsers,
                         msg_content.error.code,
                         msg_content.error.msg
                     );
@@ -177,10 +200,11 @@ function process_msg() {
                         else urls.textResults.push(url);
                     }
 
-                    send_msg_client_preview(
+                    const notificationUsers = getProjectNotificationUsers(project);
+                    send_msg_client_preview_broadcast(
                         `update-client-preview-${uuidv4()}`,
                         timestamp,
-                        process.user_id,
+                        notificationUsers,
                         JSON.stringify(urls)
                     );
 
@@ -189,12 +213,14 @@ function process_msg() {
 
             if(/preview/.test(msg_id) && next_pos >= project.tools.length) return;
 
-            if (!/preview/.test(msg_id))
-                send_msg_client(
+            if (!/preview/.test(msg_id)) {
+                const notificationUsers = getProjectNotificationUsers(project);
+                send_msg_client_broadcast(
                     user_msg_id,
                     timestamp,
-                    process.user_id
+                    notificationUsers
                 );
+            }
 
             if (!/preview/.test(msg_id) && (type == "text" || next_pos >= project.tools.length)) {
                 const file_path = path.join(__dirname, `/../${output_file_uri}`);
@@ -1081,28 +1107,91 @@ router.post("/:id/share", async(req, res)=>{
             return res.status(400).json({error: "Usuário não autenticado."});
         }
         const permission = req.body.permission || 'view';
-        const token = await Project.generateShareToken(userId, req.params.id, permission);
+        const email = req.body.email || '';
+        const token = await Project.generateShareToken(userId, req.params.id, permission, email);
         res.json({token});
     }catch (error){
         res.status(403).json({error: error.message});
     }
 });
 
+router.get("/:user/:project/shares", checkViewPermission, async(req, res) => {
+    try {
+        const userId = req.headers['x-user-id'];
+        const projectId = req.params.project;
+        
+        // Verificar se é o owner
+        const project = await Project.getOne(userId, projectId);
+        if (!project || project.user_id.toString() !== userId.toString()) {
+            return res.status(403).json({ error: "Apenas o owner pode ver os shares" });
+        }
+        
+        const ShareController = require("../controllers/share");
+        const shares = await ShareController.getProjectShares(projectId);
+        res.json(shares);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.delete("/:user/:project/share/:shareId", checkOwnerOnly, async(req, res) => {
+    try {
+        const ShareController = require("../controllers/share");
+        const Share = require("../models/share");
+        const ProjectModel = require("../models/project");
+        
+        // Obter dados do share antes de revogar
+        const share = await Share.findById(req.params.shareId);
+        if (!share) {
+            return res.status(404).json({ error: "Share não encontrado" });
+        }
+        
+        // Revogar o share
+        await ShareController.revokeShare(req.params.shareId);
+        
+        // Remover o colaborador do projeto
+        const projectData = await Project.getOne(req.params.user, req.params.project);
+        if (projectData && share.userId) {
+            await ProjectModel.findByIdAndUpdate(
+                req.params.project,
+                { $pull: { collaborators: { userId: share.userId } } },
+                { new: true }
+            );
+        }
+        
+        // Enviar notificação via WebSocket se houver userId
+        if (share.userId) {
+            send_msg_client(`access_revoked_${share.userId}`, {
+                type: 'access_revoked',
+                projectId: req.params.project,
+                projectName: projectData?.name || 'Unknown Project',
+                message: 'O seu acesso a este projeto foi revogado pelo owner.'
+            });
+        }
+        
+        res.sendStatus(204);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.post("/join/:token", async(req, res) => {
     try {
         const userId = req.headers['x-user-id'];
+        const userEmail = req.body.email;
 
         if (!userId) {
             return res.status(400).json({ error: "User ID não fornecido pelo Gateway." });
         }
 
-        const project = await Project.getSharedProject(userId, req.params.token);
+        const project = await Project.getSharedProject(userId, req.params.token, userEmail);
         if (!project) {
             return res.status(404).json({ error: "Não foi possível entrar no projeto." });
         }
         res.json({ message: "Entrou no projeto com sucesso." });
     } catch (error) {
-        res.status(400).json({ error: error.message });
+        const status = error.message.includes("Email inválido") ? 403 : 400;
+        res.status(status).json({ error: error.message });
     }
 });
 
