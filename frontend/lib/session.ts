@@ -40,7 +40,7 @@ export const login = async ({
     },
   );
 
-  if (response.status !== 201 || !response.data)
+  if (response.status !== 200 && response.status !== 201 || !response.data) // Ajustei para aceitar 200 também, por segurança
     throw new Error("Invalid credentials");
 
   const session = {
@@ -72,9 +72,6 @@ export const register = async ({
     const response = await api.post<LoginRegisterResponse>("/users/", {
       type: type,
     });
-    // const response = {
-    //   data: { user_id: new Mongoose.Types.ObjectId(), jwt: "ASKDJFAHSKDLFA" },
-    // };
 
     if (response.status !== 201 || !response.data)
       throw new Error("An error occurred while registering");
@@ -183,4 +180,17 @@ export const updatePassword = async ({
   );
 
   if (response.status !== 204) throw new Error("Error updating password");
+};
+
+// Nova função adicionada corretamente usando 'api'
+export const deleteUser = async ({ userId, token }: { userId: string, token: string }) => {
+  const response = await api.delete(`/users/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  
+  if (response.status !== 204) throw new Error("Error deleting user");
+  
+  return response.data;
 };
