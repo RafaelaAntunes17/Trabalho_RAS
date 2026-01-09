@@ -35,6 +35,8 @@ const {
     delete_image,
 } = require("../utils/minio");
 
+const { checkEditPermission, checkViewPermission, checkOwnerOnly } = require("../utils/permissionChecker");
+
 const storage = multer.memoryStorage();
 var upload = multer({ storage: storage });
 
@@ -560,7 +562,7 @@ router.post("/:user", (req, res, next) => {
         .catch((_) => res.status(502).jsonp(`Error creating new project`));
 });
 
-router.post("/:user/:project/preview/:img", (req, res, next) => {
+router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next) => {
     const activeUserId = req.headers['x-user-id'] || req.params.user;
 
     Project.getOne(activeUserId, req.params.project)
@@ -625,6 +627,7 @@ router.post("/:user/:project/preview/:img", (req, res, next) => {
 router.post(
     "/:user/:project/img",
     upload.single("image"),
+    checkEditPermission,
     async (req, res, next) => {
         if (!req.file) {
             res.status(400).jsonp("No file found");
@@ -688,7 +691,7 @@ router.post(
 );
 
 // Add new tool to a project
-router.post("/:user/:project/tool", (req, res, next) => {
+router.post("/:user/:project/tool", checkEditPermission, (req, res, next) => {
     // Reject posts to tools that don't fullfil the requirements
     if (!req.body.procedure || !req.body.params) {
         res
@@ -733,7 +736,7 @@ router.post("/:user/:project/tool", (req, res, next) => {
 
 // Reorder tools of a project
 // Reorder tools of a project
-router.post("/:user/:project/reorder", (req, res, next) => {
+router.post("/:user/:project/reorder", checkEditPermission, (req, res, next) => {
   Project.getOne(req.params.user, req.params.project)
     .then(async (project) => {
       // 1. Criar uma nova lista temporária apenas com os dados essenciais
@@ -772,7 +775,7 @@ router.post("/:user/:project/reorder", (req, res, next) => {
 });
 
 // Process a specific project
-router.post("/:user/:project/process", (req, res, next) => {
+router.post("/:user/:project/process", checkEditPermission, (req, res, next) => {
     const activeUserId = req.headers['x-user-id'] || req.params.user;
 
     Project.getOne(activeUserId, req.params.project)
@@ -843,7 +846,7 @@ router.post("/:user/:project/process", (req, res, next) => {
 });
 
 // Update a specific project
-router.put("/:user/:project", (req, res, next) => {
+router.put("/:user/:project", checkEditPermission, (req, res, next) => {
   Project.getOne(req.params.user, req.params.project)
     .then((project) => {
       // Atualiza o nome se existir
@@ -864,7 +867,7 @@ router.put("/:user/:project", (req, res, next) => {
 });
 
 // Update a tool from a specific project
-router.put("/:user/:project/tool/:tool", (req, res, next) => {
+router.put("/:user/:project/tool/:tool", checkEditPermission, (req, res, next) => {
     // Get project and update required tool with new data, keeping it's original position and procedure
     Project.getOne(req.params.user, req.params.project)
         .then((project) => {
@@ -896,7 +899,7 @@ router.put("/:user/:project/tool/:tool", (req, res, next) => {
 });
 
 // Delete a project
-router.delete("/:user/:project", (req, res, next) => {
+router.delete("/:user/:project", checkOwnerOnly, (req, res, next) => {
     Project.getOne(req.params.user, req.params.project).then(async (project) => {
         // Remove all images related to the project from the file system
         const previous_img = JSON.parse(JSON.stringify(project["imgs"]));
@@ -936,7 +939,7 @@ router.delete("/:user/:project", (req, res, next) => {
 });
 
 // Delete an image from a project
-router.delete("/:user/:project/img/:img", (req, res, next) => {
+router.delete("/:user/:project/img/:img", checkEditPermission, (req, res, next) => {
     // Get project and delete specified image
     Project.getOne(req.params.user, req.params.project)
         .then(async (project) => {
@@ -1004,7 +1007,7 @@ router.delete("/:user/:project/img/:img", (req, res, next) => {
 });
 
 // Delete a tool from a project
-router.delete("/:user/:project/tool/:tool", (req, res, next) => {
+router.delete("/:user/:project/tool/:tool", checkEditPermission, (req, res, next) => {
     // Get project and delete specified tool, updating the position of all tools that follow
     Project.getOne(req.params.user, req.params.project)
         .then((project) => {
@@ -1032,7 +1035,7 @@ router.delete("/:user/:project/tool/:tool", (req, res, next) => {
         .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
-router.post("/:user/:project/cancel", (req, res, next) => {
+router.post("/:user/:project/cancel", checkEditPermission, (req, res, next) => {
     Process.deleteAll(req.params.user, req.params.project)
         .then((_) => res.sendStatus(204))
         .catch((_) => res.status(500).jsonp("Error cancelling project processing"));
@@ -1044,7 +1047,8 @@ router.post("/:id/share", async(req, res)=>{
         if(!userId){
             return res.status(400).json({error: "Usuário não autenticado."});
         }
-        const token = await Project.generateShareToken(userId, req.params.id);
+        const permission = req.body.permission || 'view';
+        const token = await Project.generateShareToken(userId, req.params.id, permission);
         res.json({token});
     }catch (error){
         res.status(403).json({error: error.message});

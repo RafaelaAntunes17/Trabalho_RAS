@@ -208,14 +208,14 @@ router.post(
                 req.body,
                 {
                     httpsAgent: httpsAgent,
-                    // ADD THIS HEADER:
                     headers: { "x-user-id": req.params.user }
                 }
             )
             .then((resp) => res.status(201).jsonp(resp.data))
             .catch((err) => {
-                console.log(err);
-                res.status(500).jsonp("Error requesting image preview");
+                const status = err.response?.status || 500;
+                const message = err.response?.data?.error || "Error requesting image preview";
+                res.status(status).jsonp({ error: message });
             });
     }
 );
@@ -244,12 +244,17 @@ router.post(
                 {
                     headers: {
                         "Content-Type": "multipart/form-data",
+                        "x-user-id": req.params.user
                     },
                     httpsAgent: httpsAgent,
                 }
             )
             .then((resp) => res.sendStatus(201))
-            .catch((err) => res.status(500).jsonp("Error adding image to project"));
+            .catch((err) => {
+                const status = err.response?.status || 500;
+                const message = err.response?.data?.error || "Error adding image to project";
+                res.status(status).jsonp({ error: message });
+            });
     }
 );
 
@@ -263,10 +268,14 @@ router.post("/:user/:project/tool", auth.checkToken, function (req, res, next) {
         .post(
             projectsURL + `${req.params.user}/${req.params.project}/tool`,
             req.body,
-            { httpsAgent: httpsAgent }
+            { httpsAgent: httpsAgent, headers: { "x-user-id": req.params.user } }
         )
         .then((resp) => res.status(201).jsonp(resp.data))
-        .catch((err) => res.status(500).jsonp("Error adding tool to project"));
+        .catch((err) => {
+            const status = err.response?.status || 500;
+            const message = err.response?.data?.error || "Error adding tool to project";
+            res.status(status).jsonp({ error: message });
+        });
 });
 
 /**
@@ -282,10 +291,14 @@ router.post(
             .post(
                 projectsURL + `${req.params.user}/${req.params.project}/reorder`,
                 req.body,
-                { httpsAgent: httpsAgent }
+                { httpsAgent: httpsAgent, headers: { "x-user-id": req.params.user } }
             )
             .then((resp) => res.status(201).jsonp(resp.data))
-            .catch((err) => res.status(500).jsonp("Error reordering tools"));
+            .catch((err) => {
+                const status = err.response?.status || 500;
+                const message = err.response?.data?.error || "Error reordering tools";
+                res.status(status).jsonp({ error: message });
+            });
     }
 );
 
@@ -304,14 +317,15 @@ router.post(
                 req.body,
                 {
                     httpsAgent: httpsAgent,
-                    // ADD THIS HEADER:
                     headers: { "x-user-id": req.params.user }
                 }
             )
             .then((resp) => res.status(201).jsonp(resp.data))
-            .catch((err) =>
-                res.status(500).jsonp("Error requesting project processing")
-            );
+            .catch((err) => {
+                const status = err.response?.status || 500;
+                const message = err.response?.data?.error || "Error requesting project processing";
+                res.status(status).jsonp({ error: message });
+            });
     }
 );
 
@@ -324,9 +338,14 @@ router.put("/:user/:project", auth.checkToken, function (req, res, next) {
     axios
         .put(projectsURL + `${req.params.user}/${req.params.project}`, req.body, {
             httpsAgent: httpsAgent,
+            headers: { "x-user-id": req.params.user }
         })
         .then((_) => res.sendStatus(204))
-        .catch((err) => res.status(500).jsonp("Error updating project details"));
+        .catch((err) => {
+            const status = err.response?.status || 500;
+            const message = err.response?.data?.error || "Error updating project details";
+            res.status(status).jsonp({ error: message });
+        });
 });
 
 /**
@@ -343,10 +362,14 @@ router.put(
                 projectsURL +
                 `${req.params.user}/${req.params.project}/tool/${req.params.tool}`,
                 req.body,
-                { httpsAgent: httpsAgent }
+                { httpsAgent: httpsAgent, headers: { "x-user-id": req.params.user } }
             )
             .then((_) => res.sendStatus(204))
-            .catch((err) => res.status(500).jsonp("Error updating tool params"));
+            .catch((err) => {
+                const status = err.response?.status || 500;
+                const message = err.response?.data?.error || "Error updating tool params";
+                res.status(status).jsonp({ error: message });
+            });
     }
 );
 
@@ -359,9 +382,14 @@ router.delete("/:user/:project", auth.checkToken, function (req, res, next) {
     axios
         .delete(projectsURL + `${req.params.user}/${req.params.project}`, {
             httpsAgent: httpsAgent,
+            headers: { "x-user-id": req.params.user }
         })
         .then((_) => res.sendStatus(204))
-        .catch((err) => res.status(500).jsonp("Error deleting project"));
+        .catch((err) => {
+            const status = err.response?.status || 500;
+            const message = err.response?.data?.error || "Error deleting project";
+            res.status(status).jsonp({ error: message });
+        });
 });
 
 /**
@@ -377,12 +405,14 @@ router.delete(
             .delete(
                 projectsURL +
                 `${req.params.user}/${req.params.project}/img/${req.params.img}`,
-                { httpsAgent: httpsAgent }
+                { httpsAgent: httpsAgent, headers: { "x-user-id": req.params.user } }
             )
             .then((_) => res.sendStatus(204))
-            .catch((err) =>
-                res.status(500).jsonp("Error deleting image from project")
-            );
+            .catch((err) => {
+                const status = err.response?.status || 500;
+                const message = err.response?.data?.error || "Error deleting image from project";
+                res.status(status).jsonp({ error: message });
+            });
     }
 );
 
@@ -399,14 +429,17 @@ router.delete(
             .delete(
                 projectsURL +
                 `${req.params.user}/${req.params.project}/tool/${req.params.tool}`,
-                { httpsAgent: httpsAgent }
+                { httpsAgent: httpsAgent, headers: { "x-user-id": req.params.user } }
             )
             .then((_) => res.sendStatus(204))
-            .catch((err) =>
-                res.status(500).jsonp("Error removing tool from project")
-            );
+            .catch((err) => {
+                const status = err.response?.status || 500;
+                const message = err.response?.data?.error || "Error removing tool from project";
+                res.status(status).jsonp({ error: message });
+            });
     }
 );
+
 
 /**
  * Generate share token for a project
