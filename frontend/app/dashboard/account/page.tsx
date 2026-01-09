@@ -19,22 +19,10 @@ import {
   useUpdateUserProfile,
   useUpdateUserPassword,
   useLogin,
-  useDeleteUser, // <--- Importação nova
 } from "@/lib/mutations/session";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { OctagonAlert } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"; // <--- Importações novas
 
 export default function Account() {
   const session = useSession();
@@ -53,7 +41,6 @@ export default function Account() {
   const updateUser = useUpdateUserProfile();
   const updatePassword = useUpdateUserPassword();
   const login = useLogin();
-  const deleteAccount = useDeleteUser(); // <--- Hook novo
   const { toast } = useToast();
 
   // Set default values when the session is loaded or updated
@@ -290,60 +277,6 @@ export default function Account() {
                 <AlertDescription>{errorPassword}.</AlertDescription>
               </Alert>
             )}
-          </CardContent>
-        </Card>
-
-        {/* --- DANGER ZONE ADICIONADA AQUI --- */}
-        <Card className="border-red-500/50">
-          <CardHeader>
-            <CardTitle className="text-red-600">Danger Zone</CardTitle>
-            <CardDescription>
-              Irreversibly delete your account and all associated data.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive">Delete Account</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete your
-                    account, projects, and images from our servers.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                      className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-                      onClick={(e) => {
-                        // 1. Executar a mutação
-                        deleteAccount.mutate(
-                          {
-                            userId: session.user._id,
-                            token: session.token,
-                          },
-                          {
-                            // 2. Se falhar, mostrar erro e não sair da página
-                            onError: (error) => {
-                              console.error("Erro ao apagar conta:", error);
-                              toast({
-                                title: "Erro ao apagar conta",
-                                description: error.message || "Tente novamente mais tarde.",
-                                variant: "destructive",
-                              });
-                            }
-                          }
-                        );
-                      }}
-                  >                   
-                      {deleteAccount.isPending ? "Deleting..." : "Delete Account"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </CardContent>
         </Card>
       </div>

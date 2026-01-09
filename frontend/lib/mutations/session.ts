@@ -6,7 +6,6 @@ import {
   validateSession,
   updateUser,
   updatePassword,
-  deleteUser,
 } from "../session";
 
 export const useLogin = () => {
@@ -114,19 +113,6 @@ export const useUpdateUserPassword = () => {
     mutationFn: updatePassword,
     onSuccess: () => {
       qc.invalidateQueries({ refetchType: "all", queryKey: ["session"] });
-    },
-  });
-};
-export const useDeleteUser = () => {
-  return useMutation({
-    mutationFn: deleteUser,
-    onSuccess: () => {
-      // 1. Limpar a sessão do armazenamento local imediatamente
-      localStorage.removeItem("session");
-      
-      // 2. Forçar um redirecionamento "duro" para o login
-      // Isto garante que toda a memória/cache do frontend é limpa
-      window.location.href = "/login";
     },
   });
 };

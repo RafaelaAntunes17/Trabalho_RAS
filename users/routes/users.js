@@ -3,9 +3,7 @@ var router = express.Router();
 
 const User = require("../controllers/user");
 const auth = require("../auth/auth");
-const https = require("https"); // MUDAR DE http PARA https
-// Defina o URL do serviço de projetos (ajuste a porta/host conforme o seu docker-compose)
-const projects_ms = process.env.PROJECTS_URL || "https://projects:9001/"; // Alterado para HTTPS
+
 const max_free_daily_op = process.env.FREE_DAILY_OP || 5;
 
 function get_cur_date() {
@@ -244,68 +242,11 @@ router.put("/:user/process/:advanced_tools", function (req, res, next) {
     .catch((_) => res.status(701).jsonp(`Error acquiring user's information.`));
 });
 
-
-
+// Delete a user
 router.delete("/:user", function (req, res, next) {
-  const userId = req.params.user;
-  console.log(`[DELETE] A iniciar limpeza do utilizador: ${userId}`);
-
-  try {
-
-    const baseUrl = process.env.PROJECTS_URL || "https://projects:9001/";
- 
-    const targetUrl = new URL(`${baseUrl}${userId}/all`);
-
-    const options = {
-      hostname: targetUrl.hostname,
-      port: targetUrl.port,
-      path: targetUrl.pathname,
-      method: 'DELETE',
-      rejectUnauthorized: false, 
-      timeout: 5000 
-    };
-
-  
-    const request = https.request(options, (response) => {
-      console.log(`[DELETE] Resposta do Projects Service: ${response.statusCode}`);
-
-      response.resume(); 
-      deleteLocalUser(userId, res);
-    });
-
-
-    request.on('error', (e) => {
-      console.error(`[DELETE AVISO] Não foi possível contactar Projects Service: ${e.message}`);
-      
-      deleteLocalUser(userId, res);
-    });
-
- 
-    request.on('timeout', () => {
-      request.destroy();
-      console.error(`[DELETE AVISO] Timeout no Projects Service.`);
-      deleteLocalUser(userId, res);
-    });
-
-    request.end(); 
-  } catch (err) {
-    console.error("[DELETE ERRO CRÍTICO]", err);
-
-    deleteLocalUser(userId, res);
-  }
+  User.delete(req.params.user)
+    .then((_) => res.sendStatus(204))
+    .catch((_) => res.status(705).jsonp(`Error deleting user's information`));
 });
-
-
-function deleteLocalUser(userId, res) {
-  User.delete(userId)
-    .then((_) => {
-      console.log(`[DELETE] Utilizador local apagado com sucesso.`);
-      res.sendStatus(204);
-    })
-    .catch((_) => {
-      console.error(`[DELETE ERRO] Falha ao apagar utilizador local.`);
-      res.status(705).jsonp(`Error deleting user's information`);
-    });
-}
 
 module.exports = router;

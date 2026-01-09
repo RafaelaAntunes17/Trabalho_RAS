@@ -40,6 +40,4 @@ module.exports.delete = (user_id, project_id, process_id) => {
     _id: process_id,
   });
 };
-module.exports.deleteAllByUser = (user_id) => {
-  return Process.deleteMany({ user_id: user_id });
-};
+
