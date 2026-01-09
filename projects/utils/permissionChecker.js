@@ -1,6 +1,5 @@
 const Project = require("../controllers/project");
 
-// Middleware to check if user has edit permission
 const checkEditPermission = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
@@ -12,7 +11,6 @@ const checkEditPermission = async (req, res, next) => {
 
     const permission = await Project.getUserPermission(userId, projectId);
     
-    // If no permission, return 403
     if (!permission) {
       return res.status(403).json({ error: "Access denied to project" });
     }
@@ -22,7 +20,6 @@ const checkEditPermission = async (req, res, next) => {
       return res.status(403).json({ error: "You only have read permission for this project" });
     }
     
-    // Continue if has edit permission or is owner
     req.userPermission = permission;
     next();
   } catch (error) {
@@ -30,7 +27,6 @@ const checkEditPermission = async (req, res, next) => {
   }
 };
 
-// Middleware to check if user can view/access (view or edit)
 const checkViewPermission = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
@@ -53,7 +49,6 @@ const checkViewPermission = async (req, res, next) => {
   }
 };
 
-// Middleware to check if user is the project owner
 const checkOwnerOnly = async (req, res, next) => {
   try {
     const userId = req.headers['x-user-id'];
@@ -70,7 +65,6 @@ const checkOwnerOnly = async (req, res, next) => {
       return res.status(404).json({ error: "Project not found" });
     }
     
-    // Check if is owner
     if (project.user_id.toString() !== userId.toString()) {
       return res.status(403).json({ error: "Only the owner can perform this action" });
     }

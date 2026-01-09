@@ -90,7 +90,6 @@ export default function Project({
 
 const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
     try {
-        // Enviar a lista para a rota de reorder corrigida
         await api.post(`/projects/${session.user._id}/${pid}/reorder`, 
             newTools,
             {
@@ -98,9 +97,7 @@ const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
             }
         );
 
-        // Forçar atualização imediata dos dados vindos do servidor
         await qc.invalidateQueries({ queryKey: ["project", pid] });
-        // Opcional: Refetch explícito para garantir que temos os novos IDs
         await project.refetch(); 
         
     } catch (error) {
@@ -310,7 +307,7 @@ const handleUpdateTools = async (newTools: ProjectToolResponse[]) => {
                           token: session.token, 
                           projectName: project.data.name,
                           format: 'zip' 
-                        } as any, // Cast necessário se a tipagem estrita reclamar no modo 'edit'
+                        } as any,
                         { onSuccess: () => { toast({ title: "Project downloaded (ZIP)." }); } }
                       );
                     }}

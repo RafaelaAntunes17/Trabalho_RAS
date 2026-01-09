@@ -20,9 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-// CORREÇÃO: Receber tool com _id
 function SortableToolItem({ tool }: { tool: any }) {
-  // CORREÇÃO: Usar tool._id
   const {
     attributes,
     listeners,

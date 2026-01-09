@@ -4,7 +4,6 @@ export const api = axios.create({
   baseURL: "http://localhost:8080/api-gateway/",
 });
 
-// Interceptor para melhorar mensagens de erro
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{ error?: string }>) => {
@@ -40,7 +39,6 @@ api.interceptors.response.use(
       return Promise.reject(customError);
     }
     
-    // Para outros erros, mantém o comportamento padrão
     return Promise.reject(error);
   }
 );

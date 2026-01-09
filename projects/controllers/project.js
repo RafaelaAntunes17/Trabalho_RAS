@@ -46,7 +46,6 @@ module.exports.generateShareToken = async(user_id, project_id, permission = 'vie
 
   const token = jwt.sign({project_id: project_id, permission: permission}, "SECRET_KEY", {expiresIn: "24h"});
   
-  // Guardar na BD para rastreamento e revogação
   const expiresAt = new Date();
   expiresAt.setHours(expiresAt.getHours() + 24);
   
@@ -57,13 +56,11 @@ module.exports.generateShareToken = async(user_id, project_id, permission = 'vie
 
 module.exports.getSharedProject = async(user_id, token, userEmail) => {
   try{
-    // Verificar se o share foi revogado
     const share = await Share.getShareByToken(token);
     if (!share) {
       throw new Error("Link inválido, expirado ou revogado");
     }
 
-    // Validate if email matches - if share requires specific email, validate
     if (share.email) {
       if (!userEmail) {
         throw new Error("This invitation requires a valid email address.");
@@ -83,7 +80,6 @@ module.exports.getSharedProject = async(user_id, token, userEmail) => {
       {new: true}
     );
     
-    // Guardar o userId no share para notificações futuras
     if (project) {
       await Share.updateShareWithUserId(token, user_id);
     }
@@ -94,17 +90,14 @@ module.exports.getSharedProject = async(user_id, token, userEmail) => {
   }
 };
 
-// Verifica a permissão do usuário em um projeto
 module.exports.getUserPermission = async(user_id, project_id) => {
   const project = await Project.findOne({ _id: project_id });
   if (!project) return null;
   
-  // O dono tem permissão 'edit'
   if (project.user_id.toString() === user_id.toString()) {
     return 'edit';
   }
   
-  // Procura a permissão do colaborador
   const collaborator = project.collaborators.find(c => c.userId.toString() === user_id.toString());
   return collaborator ? collaborator.permission : null;
 };

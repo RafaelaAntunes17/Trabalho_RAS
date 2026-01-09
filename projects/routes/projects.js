@@ -465,7 +465,7 @@ router.get("/:user/:project/imgs", async (req, res, next) => {
 
 // Get results of processing a project
 router.get("/:user/:project/process", (req, res, next) => {
-  const format = req.query.format || "zip"; // Lê o formato da query string (padrão: zip)
+  const format = req.query.format || "zip";
 
   Project.getOne(req.params.user, req.params.project)
     .then(async (_) => {
@@ -481,7 +481,6 @@ router.get("/:user/:project/process", (req, res, next) => {
         };
 
         for (let r of results) {
-          // Obter URL assinada ou pública para incluir no JSON
           const resp = await get_image_docker(
             r.user_id,
             r.project_id,
@@ -502,7 +501,7 @@ router.get("/:user/:project/process", (req, res, next) => {
         return res.status(200).send(JSON.stringify(jsonOutput, null, 2));
       }
 
-      // --- OPÇÃO ZIP (Lógica Original) ---
+      // --- OPÇÃO ZIP ---
       const zip = new JSZip();
       const result_path = `/../images/users/${req.params.user}/projects/${req.params.project}/tmp`;
 
@@ -558,18 +557,15 @@ router.get("/:user/:project/process", (req, res, next) => {
 
 // Get results of processing a project
 router.get("/:user/:project/process/url", (req, res, next) => {
-  // 1. Verificar permissão de quem pede (Dono ou Colaborador)
   Project.getOne(req.params.user, req.params.project)
-    .then(async (project) => { // CHANGED: from "_" to "project"
+    .then(async (project) => {
       if (!project) return res.status(404).jsonp("Project not found");
 
       const ans = { 'imgs': [], 'texts': [] };
 
-      // 2. BUSCAR RESULTADOS DO DONO (project.user_id)
       const results = await Result.getAll(project.user_id, project._id);
 
       for (let r of results) {
-        // 3. GERAR URLS DA PASTA DO DONO
         const resp = await get_image_host(
           project.user_id, 
           project._id,
@@ -634,8 +630,6 @@ router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next
         .then(async (project) => {
             if (!project) return res.status(404).jsonp("Project not found");
 
-            // We use project.user_id (THE OWNER) for all file system and Minio calls
-            // because that is where the files are actually stored.
             const ownerId = project.user_id;
 
             const prev_preview = await Preview.getAll(ownerId, project._id);
@@ -649,7 +643,6 @@ router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next
             const timestamp = new Date().toISOString();
             const og_img_uri = img.og_uri;
 
-            // FIX: Use ownerId here to prevent 404
             const resp = await get_image_docker(ownerId, project._id, "src", img.og_img_key);
             const url = resp.data.url;
 
@@ -664,7 +657,6 @@ router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next
             const img_name_parts = img.new_uri.split("/");
             const img_name = img_name_parts[img_name_parts.length - 1];
 
-            // FIX: The path on disk also belongs to the owner's folder
             const new_img_uri = `./images/users/${ownerId}/projects/${project._id}/preview/${img_name}`;
             const previewDir = path.dirname(new_img_uri);
             fs_extra.ensureDirSync(previewDir);
@@ -672,7 +664,6 @@ router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next
             const tool = project.tools.filter((t) => t.position == 0)[0];
 
             const process = {
-                // USE activeUserId HERE: This ensures the COLLABORATOR gets the notification
                 user_id: activeUserId,
                 project_id: project._id,
                 img_id: img._id,
@@ -848,8 +839,6 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
     Project.getOne(activeUserId, req.params.project)
         .then(async (project) => {
             if (!project) return res.status(404).jsonp("Project not found");
-
-            // 1. Limpar resultados anteriores na pasta do DONO
             
 
             if (project.tools.length == 0) return res.status(400).jsonp("Nenhuma ferramenta selecionada");
@@ -859,7 +848,6 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
                 .then(async (resp) => {
                     if (!resp.data) return res.status(404).jsonp("Limite de operações diárias atingido");
 
-                    // 2. Caminhos no Sistema de Ficheiros (Sempre na pasta do DONO)
                     const source_path = `/../images/users/${project.user_id}/projects/${project._id}/src`;
                     const result_path = `/../images/users/${project.user_id}/projects/${project._id}/out`;
 
@@ -875,7 +863,6 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
 
                     for (let img of project.imgs) {
                         try {
-                            // 3. Buscar imagem original do MinIO (Pasta do DONO)
                             const respImg = await get_image_docker(project.user_id, project._id, "src", img.og_img_key);
                             const img_resp = await axios.get(respImg.data.url, { responseType: "stream" });
 
@@ -888,7 +875,7 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
 
                             const msg_id = `request-${uuidv4()}`;
                             const process = {
-                                user_id: activeUserId, // Quem recebe a notificação
+                                user_id: activeUserId,
                                 project_id: project._id,
                                 img_id: img._id,
                                 msg_id: msg_id,
@@ -916,10 +903,8 @@ router.post("/:user/:project/process", checkEditPermission, (req, res, next) => 
 router.put("/:user/:project", checkEditPermission, (req, res, next) => {
   Project.getOne(req.params.user, req.params.project)
     .then((project) => {
-      // Atualiza o nome se existir
       project.name = req.body.name || project.name;
       
-      // ADICIONA ISTO: Atualiza as tools se elas vierem no pedido
       if (req.body.tools) {
         project.tools = req.body.tools;
       }

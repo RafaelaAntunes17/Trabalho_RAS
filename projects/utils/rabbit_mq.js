@@ -10,7 +10,6 @@ const rabbit_mq_sv = `amqp://${rabbit_username}:${rabbit_password}@${rabbit_host
 
 let channel = null;
 
-// Estabelece a conexão uma única vez ao iniciar
 amqp.connect(rabbit_mq_sv, (err_sv, connection) => {
     if (err_sv) {
         console.error("[RabbitMQ] Erro de conexão:", err_sv);
@@ -29,7 +28,7 @@ amqp.connect(rabbit_mq_sv, (err_sv, connection) => {
             durable: true
         });
 
-        channel = ch; // Guarda o canal para reutilização
+        channel = ch;
     });
 });
 
