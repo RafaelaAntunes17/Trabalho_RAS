@@ -34,6 +34,8 @@ const {
     delete_image,
 } = require("../utils/minio");
 
+const { checkEditPermission, checkViewPermission, checkOwnerOnly } = require("../utils/permissionChecker");
+
 const storage = multer.memoryStorage();
 var upload = multer({ storage: storage });
 
@@ -599,7 +601,7 @@ router.post("/:user", (req, res, next) => {
         .catch((_) => res.status(502).jsonp(`Error creating new project`));
 });
 
-router.post("/:user/:project/preview/:img", (req, res, next) => {
+router.post("/:user/:project/preview/:img", checkEditPermission, (req, res, next) => {
     const activeUserId = req.headers['x-user-id'] || req.params.user;
 
     Project.getOne(activeUserId, req.params.project)
@@ -663,6 +665,7 @@ router.post("/:user/:project/preview/:img", (req, res, next) => {
 router.post(
     "/:user/:project/img",
     upload.single("image"),
+    checkEditPermission,
     async (req, res, next) => {
         if (!req.file) {
             res.status(400).jsonp("No file found");
@@ -1068,7 +1071,7 @@ router.delete("/:user/:project/tool/:tool", (req, res, next) => {
         .catch((_) => res.status(501).jsonp(`Error acquiring user's project`));
 });
 
-router.post("/:user/:project/cancel", (req, res, next) => {
+router.post("/:user/:project/cancel", checkEditPermission, (req, res, next) => {
     Process.deleteAll(req.params.user, req.params.project)
         .then((_) => res.sendStatus(204))
         .catch((_) => res.status(500).jsonp("Error cancelling project processing"));
@@ -1080,7 +1083,8 @@ router.post("/:id/share", async(req, res)=>{
         if(!userId){
             return res.status(400).json({error: "Usuário não autenticado."});
         }
-        const token = await Project.generateShareToken(userId, req.params.id);
+        const permission = req.body.permission || 'view';
+        const token = await Project.generateShareToken(userId, req.params.id, permission);
         res.json({token});
     }catch (error){
         res.status(403).json({error: error.message});

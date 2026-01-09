@@ -68,7 +68,8 @@ export function ShareLink({ projectId, projectName, currentUserId }: ShareLinkPr
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-        }
+        },
+        body: JSON.stringify({ permission })
       });
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {

@@ -12,10 +12,16 @@ const imgSchema = new mongoose.Schema({
   og_img_key: { type: String, required: true },
 });
 
+const collaboratorSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  permission: { type: String, enum: ['view', 'edit'], default: 'view' },
+  _id: false
+});
+
 const projectSchema = new mongoose.Schema({
   name: { type: String, required: true },
   user_id: { type: mongoose.Schema.Types.ObjectId, required: true }, // Maybe mudar para falso por causa de users anónimos, ou procurar alguma solução
-  collaborators: {type: [mongoose.Schema.Types.ObjectId], default: [] },
+  collaborators: { type: [collaboratorSchema], default: [] },
   isShareable: { type: Boolean, default: true },
   imgs: { type: [imgSchema], default: [] },
   tools: { type: [toolSchema], default: [] },
