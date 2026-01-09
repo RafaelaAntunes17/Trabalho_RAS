@@ -22,6 +22,7 @@ export default function InvitePage(){
             const session = sessionRaw ? JSON.parse(sessionRaw) : null;
             const token = session?.token;
             const userId = session?.user._id;
+            const userEmail = session?.user.email;
             
             if(!token){
                 toast({
@@ -39,11 +40,12 @@ export default function InvitePage(){
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ permission }),
+                body: JSON.stringify({ permission, email: userEmail }),
             });
 
             if(!response.ok){
-                throw new Error("Impossível aceitar o convite.");
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Impossível aceitar o convite.");
             }
             toast({
                 title: "Convite Aceite",

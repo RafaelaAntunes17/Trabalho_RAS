@@ -55,12 +55,17 @@ module.exports.generateShareToken = async(user_id, project_id, permission = 'vie
   return token;
 };
 
-module.exports.getSharedProject = async(user_id, token) => {
+module.exports.getSharedProject = async(user_id, token, userEmail) => {
   try{
     // Verificar se o share foi revogado
     const share = await Share.getShareByToken(token);
     if (!share) {
       throw new Error("Link inválido, expirado ou revogado");
+    }
+
+    // Validar se o email corresponde
+    if (userEmail && share.email && userEmail.toLowerCase() !== share.email.toLowerCase()) {
+      throw new Error("Email inválido para o link de acesso");
     }
 
     const decoded = jwt.verify(token, "SECRET_KEY");

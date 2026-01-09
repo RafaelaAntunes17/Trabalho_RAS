@@ -1119,18 +1119,20 @@ router.delete("/:user/:project/share/:shareId", checkOwnerOnly, async(req, res) 
 router.post("/join/:token", async(req, res) => {
     try {
         const userId = req.headers['x-user-id'];
+        const userEmail = req.body.email;
 
         if (!userId) {
             return res.status(400).json({ error: "User ID não fornecido pelo Gateway." });
         }
 
-        const project = await Project.getSharedProject(userId, req.params.token);
+        const project = await Project.getSharedProject(userId, req.params.token, userEmail);
         if (!project) {
             return res.status(404).json({ error: "Não foi possível entrar no projeto." });
         }
         res.json({ message: "Entrou no projeto com sucesso." });
     } catch (error) {
-        res.status(400).json({ error: error.message });
+        const status = error.message.includes("Email inválido") ? 403 : 400;
+        res.status(status).json({ error: error.message });
     }
 });
 
