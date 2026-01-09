@@ -726,7 +726,7 @@ router.post(
 );
 
 
-router.post("/:user/:project/tool", (req, res, next) => {
+router.post("/:user/:project/tool", checkEditPermission, (req, res, next) => {
 
     if (!req.body.procedure || !req.body.params) {
         res
@@ -770,7 +770,7 @@ router.post("/:user/:project/tool", (req, res, next) => {
 });
 
 
-router.post("/:user/:project/reorder", (req, res, next) => {
+router.post("/:user/:project/reorder", checkEditPermission, (req, res, next) => {
   Project.getOne(req.params.user, req.params.project)
     .then(async (project) => {
 
@@ -808,7 +808,7 @@ router.post("/:user/:project/reorder", (req, res, next) => {
 });
 
 
-router.post("/:user/:project/process", (req, res, next) => {
+router.post("/:user/:project/process", checkEditPermission, (req, res, next) => {
     const activeUserId = req.headers['x-user-id'] || req.params.user;
 
     Project.getOne(activeUserId, req.params.project)
@@ -879,7 +879,7 @@ router.post("/:user/:project/process", (req, res, next) => {
 });
 
 
-router.put("/:user/:project", (req, res, next) => {
+router.put("/:user/:project", checkEditPermission, (req, res, next) => {
   Project.getOne(req.params.user, req.params.project)
     .then((project) => {
     
@@ -900,7 +900,7 @@ router.put("/:user/:project", (req, res, next) => {
 });
 
 
-router.put("/:user/:project/tool/:tool", (req, res, next) => {
+router.put("/:user/:project/tool/:tool", checkEditPermission, (req, res, next) => {
   
     Project.getOne(req.params.user, req.params.project)
         .then((project) => {
@@ -932,7 +932,7 @@ router.put("/:user/:project/tool/:tool", (req, res, next) => {
 });
 
 
-router.delete("/:user/:project", (req, res, next) => {
+router.delete("/:user/:project", checkOwnerOnly, (req, res, next) => {
     Project.getOne(req.params.user, req.params.project).then(async (project) => {
 
         const previous_img = JSON.parse(JSON.stringify(project["imgs"]));
@@ -972,7 +972,7 @@ router.delete("/:user/:project", (req, res, next) => {
 });
 
 
-router.delete("/:user/:project/img/:img", (req, res, next) => {
+router.delete("/:user/:project/img/:img", checkEditPermission, (req, res, next) => {
 
     Project.getOne(req.params.user, req.params.project)
         .then(async (project) => {
@@ -1040,7 +1040,7 @@ router.delete("/:user/:project/img/:img", (req, res, next) => {
 });
 
 
-router.delete("/:user/:project/tool/:tool", (req, res, next) => {
+router.delete("/:user/:project/tool/:tool", checkEditPermission, (req, res, next) => {
  
     Project.getOne(req.params.user, req.params.project)
         .then((project) => {
