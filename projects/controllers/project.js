@@ -1,6 +1,8 @@
 var Project = require("../models/project");
 var jwt = require("jsonwebtoken");
 
+
+
 module.exports.getAll = async (user_id) => {
   return await Project.find({ $or:[
     {user_id: user_id},
@@ -30,8 +32,19 @@ module.exports.update = (user_id, project_id, project) => {
 
 module.exports.delete = (user_id, project_id) => {
   return Project.deleteOne({ 
-    $or: [{user_id: user_id}, {collaborators: { $elemMatch: { userId: user_id } }}],
+    user_id: user_id, 
     _id: project_id });
+};
+
+module.exports.deleteAllByUser = (user_id) => {
+  return Project.deleteMany({ user_id: user_id });
+};
+
+module.exports.removeCollaboratorFromAll = (user_id) => {
+  return Project.updateMany(
+    { "collaborators.userId": user_id },
+    { $pull: { collaborators: { userId: user_id } } }
+  );
 };
 
 module.exports.generateShareToken = async(user_id, project_id, permission = 'view') => {
@@ -62,17 +75,17 @@ module.exports.getSharedProject = async(user_id, token) => {
   }
 };
 
-// Verifica a permissão do usuário em um projeto
+
 module.exports.getUserPermission = async(user_id, project_id) => {
   const project = await Project.findOne({ _id: project_id });
   if (!project) return null;
   
-  // O dono tem permissão 'edit'
+
   if (project.user_id.toString() === user_id.toString()) {
     return 'edit';
   }
   
-  // Procura a permissão do colaborador
+
   const collaborator = project.collaborators.find(c => c.userId.toString() === user_id.toString());
   return collaborator ? collaborator.permission : null;
 };

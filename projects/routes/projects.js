@@ -43,7 +43,6 @@ const key = fs.readFileSync(__dirname + "/../certs/selfsigned.key");
 const cert = fs.readFileSync(__dirname + "/../certs/selfsigned.crt");
 
 const https = require("https");
-const project = require("../models/project");
 const httpsAgent = new https.Agent({
     rejectUnauthorized: false, 
     cert: cert,
@@ -92,8 +91,6 @@ function process_msg() {
 
             const prev_process_input_img = process.og_img_uri;
             const prev_process_output_img = process.new_img_uri;
-
-            const og_img_uri = process.og_img_uri;
             const img_id = process.img_id;
 
             await Process.delete(process.user_id, process.project_id, process._id);
@@ -283,45 +280,45 @@ function process_msg() {
 
 
 router.delete("/:user/all", async (req, res, next) => {
+    const userId = req.params.user;
+    console.log(`[PROJECTS-MS] A apagar TUDO do utilizador: ${userId}`);
+
     try {
-        
-        const projects = await Project.getAll(req.params.user); 
-        
-        
-        const ownedProjects = projects.filter(p => p.user_id === req.params.user);
+        const projects = await Project.getAll(userId); 
+        const ownedProjects = projects.filter(p => p.user_id === userId);
 
         for (let project of ownedProjects) {
             
             for (let img of project.imgs) {
-                await delete_image(req.params.user, project._id, "src", img.og_img_key).catch(e => console.error(e));
+                await delete_image(userId, project._id, "src", img.og_img_key).catch(e => console.error(e));
             }
-
             
-            const results = await Result.getAll(req.params.user, project._id);
+            const results = await Result.getAll(userId, project._id);
             for (let r of results) {
-                await delete_image(req.params.user, project._id, "out", r.img_key).catch(e => console.error(e));
-                await Result.delete(r.user_id, r.project_id, r.img_id);
+                await delete_image(userId, project._id, "out", r.img_key).catch(e => console.error(e));
             }
-
-            
-            const previews = await Preview.getAll(req.params.user, project._id);
+           
+            const previews = await Preview.getAll(userId, project._id);
             for (let p of previews) {
-                await delete_image(req.params.user, project._id, "preview", p.img_key).catch(e => console.error(e));
-                await Preview.delete(p.user_id, p.project_id, p.img_id);
+                await delete_image(userId, project._id, "preview", p.img_key).catch(e => console.error(e));
             }
-
-            
-            await Project.delete(req.params.user, project._id);
         }
 
+
+        await Project.deleteAllByUser(userId); 
+        await Project.removeCollaboratorFromAll(userId); 
         
+        await Result.deleteAllByUser(userId);
+        await Preview.deleteAllByUser(userId);
+        await Process.deleteAllByUser(userId);
+
+        console.log(`[PROJECTS-MS] Limpeza completa.`);
         res.sendStatus(204);
     } catch (error) {
         console.error("Erro ao apagar dados do utilizador:", error);
         res.status(500).jsonp("Erro ao processar pedido de remoção de conta");
     }
 });
-
 
 router.get("/:user", (req, res, next) => {
     Project.getAll(req.params.user)

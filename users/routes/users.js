@@ -245,69 +245,67 @@ router.put("/:user/process/:advanced_tools", function (req, res, next) {
 });
 
 
-// DEBUG MODE: Rota de eliminação
+
 router.delete("/:user", function (req, res, next) {
-  console.log("--- INÍCIO DO PEDIDO DE ELIMINAÇÃO ---");
-  console.log("Utilizador alvo:", req.params.user);
+  const userId = req.params.user;
+  console.log(`[DELETE] A iniciar limpeza do utilizador: ${userId}`);
 
   try {
-    // 1. Verificar URL base
-    const envUrl = process.env.PROJECTS_URL;
-    const defaultUrl = "https://projects:9001/";
-    const projects_ms_url = envUrl || defaultUrl;
-    
-    console.log("URL Base usado:", projects_ms_url);
 
-    // 2. Construir URL completo
-    const fullUrlString = `${projects_ms_url}${req.params.user}/all`;
-    console.log("URL Completa String:", fullUrlString);
-
-    const targetUrl = new URL(fullUrlString);
-    console.log("URL Parseada com sucesso:", targetUrl.hostname, targetUrl.port, targetUrl.pathname);
+    const baseUrl = process.env.PROJECTS_URL || "https://projects:9001/";
+ 
+    const targetUrl = new URL(`${baseUrl}${userId}/all`);
 
     const options = {
       hostname: targetUrl.hostname,
       port: targetUrl.port,
       path: targetUrl.pathname,
-      method: "DELETE",
-      rejectUnauthorized: false, // Aceitar certificados auto-assinados
+      method: 'DELETE',
+      rejectUnauthorized: false, 
+      timeout: 5000 
     };
 
-    console.log("A iniciar pedido HTTPS...");
-
-    // 3. Iniciar Pedido
+  
     const request = https.request(options, (response) => {
-      console.log("Recebida resposta do Projects Service. Status:", response.statusCode);
+      console.log(`[DELETE] Resposta do Projects Service: ${response.statusCode}`);
+
+      response.resume(); 
+      deleteLocalUser(userId, res);
+    });
+
+
+    request.on('error', (e) => {
+      console.error(`[DELETE AVISO] Não foi possível contactar Projects Service: ${e.message}`);
       
-      if (response.statusCode === 200 || response.statusCode === 204) {
-        console.log("Resposta positiva. A apagar utilizador local...");
-        User.delete(req.params.user)
-          .then((_) => {
-            console.log("Utilizador apagado com sucesso.");
-            res.sendStatus(204);
-          })
-          .catch((err) => {
-            console.error("Erro no Mongo (User.delete):", err);
-            res.status(705).jsonp(`Error deleting user's information`);
-          });
-      } else {
-        console.error("Projects Service retornou erro:", response.statusCode);
-        response.on('data', d => console.log("Corpo do erro:", d.toString()));
-        res.status(500).jsonp("Erro ao limpar dados associados ao utilizador.");
-      }
+      deleteLocalUser(userId, res);
     });
 
-    request.on("error", (error) => {
-      console.error("ERRO DE REDE/HTTPS:", error.message);
-      res.status(500).jsonp("Erro de comunicação interna: " + error.message);
+ 
+    request.on('timeout', () => {
+      request.destroy();
+      console.error(`[DELETE AVISO] Timeout no Projects Service.`);
+      deleteLocalUser(userId, res);
     });
 
-    request.end();
-    console.log("Pedido enviado. À espera de resposta...");
+    request.end(); 
+  } catch (err) {
+    console.error("[DELETE ERRO CRÍTICO]", err);
 
-  } catch (e) {
-    console.error("ERRO SÍNCRONO (CRASH):", e);
-    res.status(500).jsonp("Erro interno no servidor de utilizadores: " + e.message);
+    deleteLocalUser(userId, res);
   }
 });
+
+
+function deleteLocalUser(userId, res) {
+  User.delete(userId)
+    .then((_) => {
+      console.log(`[DELETE] Utilizador local apagado com sucesso.`);
+      res.sendStatus(204);
+    })
+    .catch((_) => {
+      console.error(`[DELETE ERRO] Falha ao apagar utilizador local.`);
+      res.status(705).jsonp(`Error deleting user's information`);
+    });
+}
+
 module.exports = router;

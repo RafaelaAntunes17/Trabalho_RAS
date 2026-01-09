@@ -1,30 +1,19 @@
+FROM alpine:3.18
 
-DATE=$(date +%Y-%m-%d)
-BASE_DIR="/backups_data/$DATE"
+# Instala dependências e Timezone (para o cron bater certo com Portugal)
+RUN apk add --no-cache bash curl mongodb-tools tzdata && \
+    cp /usr/share/zoneinfo/Europe/Lisbon /etc/localtime && \
+    echo "Europe/Lisbon" > /etc/timezone
 
-mkdir -p "$BASE_DIR/minio_images"
+# Instala MinIO Client
+RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && \
+    chmod +x /usr/local/bin/mc
 
-echo "[$(date)] Iniciação do Backup Diário..."
+WORKDIR /scripts
 
+COPY backup.sh .
+# Configura o Cron e dá permissão ao script num só passo
+RUN chmod +x backup.sh && \
+    echo "0 3 * * * /scripts/backup.sh >> /var/log/backup.log 2>&1" > /etc/crontabs/root
 
-
-echo "A fazer backup do Users DB..."
-mongodump --host users_mongoDB --port 27019 --out "$BASE_DIR/mongo/users"
-
-echo "A fazer backup do Projects DB..."
-mongodump --host projects_mongoDB --port 27018 --out "$BASE_DIR/mongo/projects"
-
-echo "A fazer backup do Subscriptions DB..."
-mongodump --host subscriptions_mongoDB --port 27017 --out "$BASE_DIR/mongo/subscriptions"
-
-
-
-echo "A configurar cliente MinIO..."
-
-mc alias set local_minio http://minio:9000 admin admin123
-
-echo "A espelhar buckets do MinIO..."
-
-mc mirror --overwrite local_minio "$BASE_DIR/minio_images"
-
-echo "[$(date)] Backup concluído com sucesso em: $BASE_DIR"
+CMD ["crond", "-f"]
