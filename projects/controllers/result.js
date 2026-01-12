@@ -32,3 +32,6 @@ module.exports.delete = (user_id, project_id, img_id) => {
     img_id: img_id,
   });
 };
+module.exports.deleteAllByUser = (user_id) => {
+  return Result.deleteMany({ user_id: user_id });
+};

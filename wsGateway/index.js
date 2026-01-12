@@ -2,7 +2,7 @@ const http = require("http");
 const socketIo = require('socket.io');
 const jwt = require("jsonwebtoken");
 
-const { read_rabbit_msg, send_rabbit_msg } = require("./utils/rabbit_mq.js");
+const { read_rabbit_msg } = require("./utils/rabbit_mq.js");
 const httpServer = http.createServer();
 httpServer.listen(4000);
 
@@ -28,7 +28,6 @@ io.on("connection", (socket) => {
             console.log("Connecting to room:", payload.id)
             socket.join(payload.id);
         });
-    
     }
 
     socket.on("disconnect", () => {
@@ -40,13 +39,20 @@ io.on("connection", (socket) => {
 
 function process_msg() {
     read_rabbit_msg('ws_queue', (msg) => {
+
         const msg_content = JSON.parse(msg.content.toString());
         const msg_id = msg_content.messageId;
-        const timestamp = msg_content.timestamp
         const status = msg_content.status;
         const user = msg_content.user;
 
         console.log('Received msg:', JSON.stringify(msg_content));
+       
+        if (status === "cancelled" || /processing-cancelled/.test(msg_id)) {
+            console.log(`[WS] Notifying cancel for task: ${msg_id}`);
+            io.to(user).emit("process-cancelled", msg_id);
+            return; 
+        }
+
 
         if (/update-client-preview/.test(msg_id)) {
             if (status == "error") {
@@ -75,11 +81,6 @@ function process_msg() {
 
             io.to(user).emit("process-update", msg_id);
         }
-        else if (/processing-cancelled/.test(msg_id) || status == "cancelled") {
-          
-            io.to(user).emit("process-cancelled", msg_id);
-        }
-  
 
     })
 }
